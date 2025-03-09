@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:fund_divider/model/hive.dart';
+import 'package:fund_divider/popups/add_fund_dialog.dart';
+import 'package:fund_divider/storage/money_storage.dart';
+import 'package:intl/intl.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({Key? key}) : super(key: key);
@@ -7,12 +12,33 @@ class WalletPage extends StatefulWidget {
   State<WalletPage> createState() => _WalletPageState();
 }
 
-class _WalletPageState extends State<WalletPage> with SingleTickerProviderStateMixin {
-  bool isExpanded = false;
+class _WalletPageState extends State<WalletPage> {
+  double balance = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WalletService.setInitialBalance(0.0);
+    balance = WalletService.getBalance();
+  }
+
+  String formatRupiah(double value) {
+    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0).format(value);
+  }
+
+  double _getTotalExpenseForPeriod(Duration period) {
+    DateTime now = DateTime.now();
+    DateTime startDate = now.subtract(period);
+    return WalletService.getHistory()
+        .where((history) => history.expense != null && history.dateAdded.isAfter(startDate))
+        .map((history) => history.expense!.amount)
+        .fold(0.0, (sum, amount) => sum + amount);
+  }
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -24,7 +50,10 @@ class _WalletPageState extends State<WalletPage> with SingleTickerProviderStateM
               style: TextStyle(color: Colors.white, fontSize: 18),
             ),
             const SizedBox(height: 20),
+
+            // Wallet Container
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.grey[900],
@@ -39,13 +68,19 @@ class _WalletPageState extends State<WalletPage> with SingleTickerProviderStateM
                     style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    "\$56,890.00",
-                    style: TextStyle(
-                      color: Colors.yellow,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  ValueListenableBuilder(
+                    valueListenable: WalletService.listenToBalance(),
+                    builder: (context, Box<Wallet> box, _) {
+                      double balance = box.get('main')?.balance ?? 0.0;
+                      return Text(
+                        formatRupiah(balance),
+                        style: const TextStyle(
+                          color: Colors.yellow,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 10),
                   ElevatedButton(
@@ -56,58 +91,21 @@ class _WalletPageState extends State<WalletPage> with SingleTickerProviderStateM
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AddFundDialog();
+                        },
+                      );
+                    },
                     child: const Text("Add More Fund"),
                   ),
                 ],
               ),
             ),
-           AnimatedSize(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          alignment: Alignment.topCenter, // 👈 Expands from top to bottom
-          child: Container(
-            width: double.infinity,
-            padding: isExpanded ? const EdgeInsets.all(16) : EdgeInsets.zero,
-            margin: const EdgeInsets.only(top: 8),
-            decoration: BoxDecoration(
-              color: Colors.yellow,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: isExpanded
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildExpenseItem("General Expense", "50% of total fund", Colors.green),
-                      const SizedBox(height: 10),
-                      _buildExpenseItem("Shopping", "25% of total fund", Colors.red),
-                      const SizedBox(height: 10,),
-                      _buildExpenseItem("Some Expense", "25% of total fund", Colors.red)
-                    ],
-                  )
-                : null, // Hide content when collapsed
-          ),
-        ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  isExpanded = !isExpanded;
-                });
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    isExpanded ? "Collapse Fund Divider" : "Expand Fund Divider",
-                    style: const TextStyle(color: Colors.yellow),
-                  ),
-                  Icon(
-                    isExpanded ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                    color: Colors.yellow,
-                  ),
-                ],
-              ),
-            ),
+
+            // History Section
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),
@@ -123,21 +121,81 @@ class _WalletPageState extends State<WalletPage> with SingleTickerProviderStateM
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                   const SizedBox(height: 12),
-                  _buildTransactionItem("Salary", "Income", "\$4,000.00"),
-                  _buildTransactionItem("Stock Dividends", "Income", "\$1,000.00"),
-                  _buildTransactionItem("App Subscriptions", "Outcome", "\$300.00"),
-                  _buildTransactionItem("Food & Dining", "Outcome", "\$1,500.00"),
+                  ValueListenableBuilder(
+                    valueListenable: WalletService.listenToHistory(),
+                    builder: (context, Box<History> box, _) {
+                      List<History> historyList = box.values.toList().reversed.toList();
+
+                      if (historyList.isEmpty) {
+                        return const Text(
+                          "No transaction history yet.",
+                          style: TextStyle(color: Colors.white),
+                        );
+                      }
+
+                      return SizedBox(
+                        height: 250, // Fixed height for the history section
+                        child: ValueListenableBuilder(
+                          valueListenable: WalletService.listenToHistory(),
+                          builder: (context, Box<History> box, _) {
+                            List<History> historyList = box.values.toList().reversed.toList();
+
+                            if (historyList.isEmpty) {
+                              return const Center(
+                                child: Text(
+                                  "No transaction history yet.",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              );
+                            }
+
+                            return Scrollbar(
+                              thickness: 3,
+                              radius: const Radius.circular(8),
+                              child: ListView.builder(
+                                physics: const BouncingScrollPhysics(),
+                                padding: EdgeInsets.zero,
+                                itemCount: historyList.length,
+                                itemBuilder: (context, index) {
+                                  final history = historyList[index];
+                                  bool isSaving = history.saving != null;
+                                  String title = isSaving ? history.saving!.description : history.expense!.description;
+                                  String type = isSaving ? "Saving" : "Expense";
+                                  double amount = isSaving ? history.saving!.amount : history.expense!.amount;
+
+                                  return _buildTransactionItem(history.id.toString(), title, type, formatRupiah(amount));
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildSummaryCard("Monthly", "Rp. 1", "Spent this month"),
-                _buildSummaryCard("Weekly", "Rp. 1", "Spent this week", isHighlighted: true),
-                _buildSummaryCard("Daily", "Rp. 1", "Spent this day"),
-              ],
+
+            // Summary Cards
+            ValueListenableBuilder(
+              valueListenable: WalletService.listenToHistory(),
+              builder: (context, Box<History> box, _) {
+                List<History> historyList = box.values.toList();
+
+                double totalMonthly = _getTotalExpenseForPeriod(const Duration(days: 30));
+                double totalWeekly = _getTotalExpenseForPeriod(const Duration(days: 7));
+                double totalDaily = _getTotalExpenseForPeriod(const Duration(days: 1));
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildSummaryCard("Monthly", formatRupiah(totalMonthly), "Spent this month"),
+                    _buildSummaryCard("Weekly", formatRupiah(totalWeekly), "Spent this week", isHighlighted: true),
+                    _buildSummaryCard("Daily", formatRupiah(totalDaily), "Spent this day"),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -145,25 +203,38 @@ class _WalletPageState extends State<WalletPage> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildExpenseItem(String title, String percentage, Color textColor) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: const TextStyle(color: Colors.black, fontSize: 16)),
-        Text(percentage, style: TextStyle(color: textColor, fontSize: 14)),
-      ],
-    );
-  }
-
-  Widget _buildTransactionItem(String title, String type, String amount) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: const TextStyle(color: Colors.white)),
-          Text(amount, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ],
+  Widget _buildTransactionItem(String id, String title, String type, String amount) {
+    return Dismissible(
+      key: Key(id), // Unique key for each item
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (direction) {
+        WalletService.deleteHistory(int.tryParse(id)!); // Ensure you have this function in your service
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                Text(type, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+              ],
+            ),
+            Text(amount,
+                style: TextStyle(
+                  color: type == "Saving" ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                )),
+          ],
+        ),
       ),
     );
   }
@@ -179,9 +250,16 @@ class _WalletPageState extends State<WalletPage> with SingleTickerProviderStateM
         ),
         child: Column(
           children: [
-            Text(amount, style: TextStyle(color: isHighlighted ? Colors.black : Colors.yellow, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(amount,
+                style: TextStyle(
+                    color: isHighlighted ? Colors.black : Colors.yellow,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text(subtitle, style: TextStyle(color: isHighlighted ? Colors.black : Colors.grey, fontSize: 10)),
+            Text(subtitle,
+                style: TextStyle(
+                    color: isHighlighted ? Colors.black : Colors.grey,
+                    fontSize: 10)),
           ],
         ),
       ),

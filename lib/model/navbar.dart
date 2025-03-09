@@ -12,4 +12,14 @@ final navBarItems = [
     title: const Text("Expenses"),
     selectedColor: Color(0xFFffde59),
   ),
+  SalomonBottomBarItem(
+    icon: const Icon(Icons.savings),
+    title: const Text("Savings"),
+    selectedColor: Color(0xFFffde59),
+  ),
+  SalomonBottomBarItem(
+    icon: const Icon(Icons.settings),
+    title: const Text("Settings"),
+    selectedColor: Color(0xFFffde59),
+  ),
 ];

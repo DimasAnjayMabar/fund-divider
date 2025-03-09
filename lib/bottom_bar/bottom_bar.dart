@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/navbar.dart';
-import 'package:fund_divider/pages/expenses.page.dart';
+import 'package:fund_divider/pages/expenses_page.dart';
 import 'package:fund_divider/pages/wallet_page.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
