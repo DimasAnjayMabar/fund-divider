@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/hive.dart';
-import 'package:fund_divider/popups/add_fund_dialog.dart';
-import 'package:fund_divider/popups/add_main_expense_dialog.dart';
-import 'package:fund_divider/storage/money_storage.dart';
+import 'package:fund_divider/popups/expenses/add_expense_dialog.dart';
+import 'package:fund_divider/popups/expenses/edit_expenses.dart';
 import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -54,10 +53,20 @@ class _ExpensesPageState extends State<ExpensesPage> {
                     itemCount: expenses.length,
                     itemBuilder: (context, index) {
                       final expense = expenses[index];
-                      return _buildExpenseCard(
-                        title: expense.description,
-                        amount: formatRupiah(expense.amount),
-                        color: Colors.red,
+                      return GestureDetector(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return EditExpenses(expenseId: expense.id); // ✅ Ensure widget is returned
+                            },
+                          );
+                        },
+                        child: _buildExpenseCard(
+                          title: expense.description,
+                          amount: formatRupiah(expense.amount),
+                          color: Colors.red,
+                        ),
                       );
                     },
                   );
@@ -102,80 +111,4 @@ class _ExpensesPageState extends State<ExpensesPage> {
   }
 }
 
-// // Dialog to add an expense
-// class AddExpenseDialog extends StatefulWidget {
-//   @override
-//   _AddExpenseDialogState createState() => _AddExpenseDialogState();
-// }
 
-// class _AddExpenseDialogState extends State<AddExpenseDialog> {
-//   final TextEditingController descriptionController = TextEditingController();
-//   final TextEditingController amountController = TextEditingController();
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return AlertDialog(
-//       backgroundColor: Colors.grey[900],
-//       title: const Text('Add Expense', style: TextStyle(color: Colors.white)),
-//       content: Column(
-//         mainAxisSize: MainAxisSize.min,
-//         children: [
-//           TextField(
-//             controller: descriptionController,
-//             style: const TextStyle(color: Colors.white),
-//             decoration: InputDecoration(
-//               hintText: 'Description',
-//               hintStyle: TextStyle(color: Colors.grey[500]),
-//               enabledBorder: UnderlineInputBorder(
-//                 borderSide: BorderSide(color: Colors.grey[700]!),
-//               ),
-//             ),
-//           ),
-//           const SizedBox(height: 16),
-//           TextField(
-//             controller: amountController,
-//             style: const TextStyle(color: Colors.white),
-//             keyboardType: TextInputType.number,
-//             decoration: InputDecoration(
-//               hintText: 'Amount',
-//               hintStyle: TextStyle(color: Colors.grey[500]),
-//               enabledBorder: UnderlineInputBorder(
-//                 borderSide: BorderSide(color: Colors.grey[700]!),
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//       actions: [
-//         TextButton(
-//           onPressed: () => Navigator.pop(context),
-//           child: Text('Cancel', style: TextStyle(color: Colors.grey[400])),
-//         ),
-//         TextButton(
-//           onPressed: () {
-//             try {
-//               final amount = double.parse(amountController.text);
-//               WalletService.addExpense(
-//                 descriptionController.text, 
-//                 amount
-//               );
-//               Navigator.pop(context);
-//             } catch (e) {
-//               ScaffoldMessenger.of(context).showSnackBar(
-//                 const SnackBar(content: Text('Please enter a valid amount'))
-//               );
-//             }
-//           },
-//           child: const Text('Add', style: TextStyle(color: Colors.blue)),
-//         ),
-//       ],
-//     );
-//   }
-
-//   @override
-//   void dispose() {
-//     descriptionController.dispose();
-//     amountController.dispose();
-//     super.dispose();
-//   }
-// }

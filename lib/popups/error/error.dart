@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fund_divider/error_popup.dart/error_handler.dart';
+import 'package:fund_divider/model/error_handler.dart';
 
 class ErrorPopup extends StatelessWidget {
   final String errorMessage;

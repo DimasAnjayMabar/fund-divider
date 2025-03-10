@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/hive.dart';
-import 'package:fund_divider/popups/add_fund_dialog.dart';
+import 'package:fund_divider/popups/wallet/add_fund_dialog.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -134,40 +134,37 @@ class _WalletPageState extends State<WalletPage> {
                       }
 
                       return SizedBox(
-                        height: 250, // Fixed height for the history section
-                        child: ValueListenableBuilder(
-                          valueListenable: WalletService.listenToHistory(),
-                          builder: (context, Box<History> box, _) {
-                            List<History> historyList = box.values.toList().reversed.toList();
+                        height: 250,
+                        child: Scrollbar(
+                          thickness: 3,
+                          radius: const Radius.circular(8),
+                          child: ListView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            padding: EdgeInsets.zero,
+                            itemCount: historyList.length,
+                            itemBuilder: (context, index) {
+                              final history = historyList[index];
+                              bool isSaving = history.saving != null;
+                              String title = isSaving ? history.saving!.description : history.expense!.description;
+                              String type = isSaving ? "Saving" : "Expense";
+                              double amount = isSaving ? history.saving!.amount : history.expense!.amount;
 
-                            if (historyList.isEmpty) {
-                              return const Center(
-                                child: Text(
-                                  "No transaction history yet.",
-                                  style: TextStyle(color: Colors.white),
+                              return Dismissible(
+                                key: Key(history.id.toString()),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  color: Colors.red,
+                                  child: const Icon(Icons.delete, color: Colors.white),
                                 ),
-                              );
-                            }
-
-                            return Scrollbar(
-                              thickness: 3,
-                              radius: const Radius.circular(8),
-                              child: ListView.builder(
-                                physics: const BouncingScrollPhysics(),
-                                padding: EdgeInsets.zero,
-                                itemCount: historyList.length,
-                                itemBuilder: (context, index) {
-                                  final history = historyList[index];
-                                  bool isSaving = history.saving != null;
-                                  String title = isSaving ? history.saving!.description : history.expense!.description;
-                                  String type = isSaving ? "Saving" : "Expense";
-                                  double amount = isSaving ? history.saving!.amount : history.expense!.amount;
-
-                                  return _buildTransactionItem(history.id.toString(), title, type, formatRupiah(amount));
+                                onDismissed: (direction) {
+                                  WalletService.deleteExpenseFromHistory(history);
                                 },
-                              ),
-                            );
-                          },
+                                child: _buildTransactionItem(history.id.toString(), title, type, formatRupiah(amount)),
+                              );
+                            },
+                          ),
                         ),
                       );
                     },
@@ -204,37 +201,24 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   Widget _buildTransactionItem(String id, String title, String type, String amount) {
-    return Dismissible(
-      key: Key(id), // Unique key for each item
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: Colors.red,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      onDismissed: (direction) {
-        WalletService.deleteHistory(int.tryParse(id)!); // Ensure you have this function in your service
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
-                Text(type, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-              ],
-            ),
-            Text(amount,
-                style: TextStyle(
-                  color: type == "Saving" ? Colors.green : Colors.red,
-                  fontWeight: FontWeight.bold,
-                )),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
+              Text(type, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+            ],
+          ),
+          Text(amount,
+              style: TextStyle(
+                color: type == "Saving" ? Colors.green : Colors.red,
+                fontWeight: FontWeight.bold,
+              )),
+        ],
       ),
     );
   }

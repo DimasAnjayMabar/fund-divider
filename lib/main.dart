@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/bottom_bar/bottom_bar.dart';
-import 'package:fund_divider/error_popup.dart/error.dart';
-import 'package:fund_divider/error_popup.dart/error_handler.dart';
+import 'package:fund_divider/popups/error/error.dart';
+import 'package:fund_divider/model/error_handler.dart';
+import 'package:fund_divider/model/hive.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -14,6 +15,9 @@ void main() async {
     ErrorHandler.showError(details.exceptionAsString());
     FlutterError.dumpErrorToConsole(details);
   };
+  await Hive.openBox<Wallet>('walletBox');
+  await Hive.openBox<Expenses>('expensesBox');
+  await Hive.openBox<History>('historyBox'); 
   runApp(const MyApp());
 }
 class MyApp extends StatelessWidget {

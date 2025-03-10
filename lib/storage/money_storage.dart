@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:fund_divider/error_popup.dart/error_handler.dart';
+import 'package:fund_divider/model/error_handler.dart';
 import 'package:fund_divider/model/hive.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -110,7 +110,7 @@ class WalletService {
     // Create and store the History record with a reference to the new expense
     // Create and store the History record with a reference to the new expense
     History historyEntry = History(
-      id: _historyBox.length + 1, // Unique history ID
+      id: id, // Unique history ID
       saving: null, // No saving since this is an expense
       expense: newExpense, // Store FULL Expense object instead of ID
       dateAdded: DateTime.now(),
@@ -119,27 +119,26 @@ class WalletService {
     await _historyBox.add(historyEntry);
   }
 
-  /// **Delete History Entry**
-  static Future<void> deleteHistory(int historyId) async {
-    History? historyEntry = _historyBox.get(historyId);
-    
-    if (historyEntry == null) return;
+  static Future<void> deleteExpenseFromHistory(History history) async {
+    var historyBox = Hive.box<History>('historyBox');
+    var expenseBox = Hive.box<Expenses>('expensesBox');
 
-    if (historyEntry.expense != null) {
-      // Restore the balance if it's an expense
-      double restoredAmount = historyEntry.expense!.amount;
-      double currentBalance = getBalance();
-      await _walletBox.put('main', Wallet(id: 1, balance: currentBalance + restoredAmount));
+    double amountToRestore = 0.0;
 
-      // Delete the expense from the expenses box
-      await _expensesBox.delete(historyEntry.expense!.id);
-    } else if (historyEntry.saving != null) {
-      // Delete the saving from the savings box
-      await _savingsBox.delete(historyEntry.saving!.id);
+    // Delete related expense if it exists
+    if (history.expense != null) {
+      int? expenseId = history.expense!.id;
+      if (expenseBox.containsKey(expenseId)) {
+        amountToRestore = history.expense!.amount; // Store amount before deletion
+        await expenseBox.delete(expenseId);
+      }
     }
 
-    // Remove from history
-    await _historyBox.delete(historyId);
+    // Remove the history entry itself
+    await historyBox.delete(history.id);
+
+    // Update the balance
+    updateBalance(amountToRestore);
   }
 
   /// **Get Expense History**
@@ -166,4 +165,7 @@ class WalletService {
     return _historyBox.listenable();
   }
 
+  static ValueListenable<Box<Wallet>> listenBalance() {
+    return _walletBox.listenable();
+  }
 }
