@@ -29,8 +29,8 @@ class Savings {
   @HiveField(4)
   double target;
 
-  @HiveField(5)
-  bool isDeleted;
+  @HiveField(6)
+  DateTime date_added;
 
   Savings({
     required this.id,
@@ -38,7 +38,7 @@ class Savings {
     required this.percentage,
     required this.amount,
     required this.target,
-    required this.isDeleted,
+    required this.date_added
   });
 }
 
@@ -53,7 +53,10 @@ class Expenses {
   @HiveField(2)
   double amount;
 
-  Expenses({required this.id, required this.description, required this.amount});
+  @HiveField(3)
+  DateTime date_added;
+
+  Expenses({required this.id, required this.description, required this.amount, required this.date_added});
 }
 
 @HiveType(typeId: 3)

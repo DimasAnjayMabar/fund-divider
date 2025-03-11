@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:fund_divider/model/error_handler.dart';
 import 'package:fund_divider/model/hive.dart';
 import 'package:hive/hive.dart';
@@ -29,11 +30,6 @@ class WalletService {
     }
   }
 
-  /// **Listen to balance updates**
-  static ValueListenable<Box<Wallet>> listenToBalance() {
-    return _walletBox.listenable();
-  }
-
   /// **Set initial balance**
   static void setInitialBalance(double amount) {
     if (_walletBox.isEmpty) {
@@ -52,33 +48,50 @@ class WalletService {
     _walletBox.put('main', Wallet(id: 1, balance: currentBalance + amount));
   }
 
+  static Future<void> updateBalanceToWallet(double amount) async {
+    double currentBalance = getBalance();
+    double newBalance = currentBalance + amount;
+
+    var savingsBox = Hive.box<Savings>('savingsBox');
+    List<Savings> savingsList = savingsBox.values.toList();
+
+    if (savingsList.isNotEmpty) {
+      double totalPercentage = savingsList.fold(0, (sum, s) => sum + s.percentage);
+      
+      if (totalPercentage > 0) {
+        for (var saving in savingsList) {
+          double savingAmount = (amount * (saving.percentage / totalPercentage));
+
+          // Update saving amount
+          saving.amount += savingAmount;
+          savingsBox.put(saving.id, saving);
+
+          // Deduct from balance
+          newBalance -= savingAmount;
+        }
+      }
+    }
+
+    // Update the wallet balance after savings deduction
+    await _walletBox.put('main', Wallet(id: 1, balance: newBalance));
+  }
+
   /// **Add Saving**
-  static Future<void> addSaving(
-    String description, double percentage, double amount, double target) async {
-  int id = _savingsBox.length + 1;
+  static Future<void> addSaving(String description, double percentage, double amount, double target) async {
+    int id = _savingsBox.length + 1;
 
-  // Create the Savings object
-  Savings newSaving = Savings(
-    id: id,
-    description: description,
-    percentage: percentage,
-    amount: amount,
-    target: target,
-    isDeleted: false,
-  );
-
-  // Store the Savings object in the box
-  await _savingsBox.put(id, newSaving);
-
-    // Create and store the History record with a reference to the new saving
-    History historyEntry = History(
-      id: _historyBox.length + 1,  // Unique history ID
-      saving: newSaving, // Direct reference to the Savings object
-      expense: null,  // No expense since this is a saving
-      dateAdded: DateTime.now(),
+    // Create the Savings object
+    Savings newSaving = Savings(
+      id: id,
+      description: description,
+      percentage: percentage,
+      amount: amount,
+      target: target,
+      date_added: DateTime.now()
     );
 
-    await _historyBox.add(historyEntry);
+    // Store the Savings object in the box
+    await _savingsBox.put(id, newSaving);
   }
 
 
@@ -102,6 +115,7 @@ class WalletService {
       id: id,
       description: description,
       amount: amount,
+      date_added: DateTime.now()
     );
 
     // Store the Expense object in the box
@@ -119,26 +133,25 @@ class WalletService {
     await _historyBox.add(historyEntry);
   }
 
-  static Future<void> deleteExpenseFromHistory(History history) async {
-    var historyBox = Hive.box<History>('historyBox');
+  static Future<void> deleteExpense(Expenses expense) async {
     var expenseBox = Hive.box<Expenses>('expensesBox');
 
     double amountToRestore = 0.0;
 
     // Delete related expense if it exists
-    if (history.expense != null) {
-      int? expenseId = history.expense!.id;
-      if (expenseBox.containsKey(expenseId)) {
-        amountToRestore = history.expense!.amount; // Store amount before deletion
-        await expenseBox.delete(expenseId);
-      }
+    if(expenseBox.containsKey(expense.id)){
+      amountToRestore = expense.amount;
+      await expenseBox.delete(expense.id);
     }
-
-    // Remove the history entry itself
-    await historyBox.delete(history.id);
 
     // Update the balance
     updateBalance(amountToRestore);
+  }
+
+  static List<Expenses> getExpense(){
+    return _expensesBox.values.map((expense){
+      return Expenses(id: expense.id, description: expense.description, amount: expense.amount, date_added: expense.date_added);
+    }).toList();
   }
 
   /// **Get Expense History**
@@ -153,6 +166,16 @@ class WalletService {
     }).toList();
   }
 
+  static double getTotalExpenseForPeriod(Duration period) {
+    DateTime now = DateTime.now();
+    DateTime startDate = now.subtract(period);
+
+    return WalletService.getExpense()
+        .where((expense) => expense.date_added.isAfter(startDate))
+        .map((expense) => expense.amount)
+        .fold(0.0, (sum, amount) => sum + amount);
+  }
+
   static Savings? getSavingById(int id) {
     return _savingsBox.get(id);
   }
@@ -165,7 +188,16 @@ class WalletService {
     return _historyBox.listenable();
   }
 
-  static ValueListenable<Box<Wallet>> listenBalance() {
+    /// **Listen to balance updates**
+  static ValueListenable<Box<Wallet>> listenToBalance() {
     return _walletBox.listenable();
+  }
+
+  static ValueListenable<Box<Expenses>> listenToExpenses(){
+    return _expensesBox.listenable();
+  }
+
+  static ValueListenable<Box<Savings>> listenToSavings(){
+    return _savingsBox.listenable();
   }
 }

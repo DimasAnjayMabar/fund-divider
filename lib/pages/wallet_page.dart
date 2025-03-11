@@ -26,13 +26,18 @@ class _WalletPageState extends State<WalletPage> {
     return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0).format(value);
   }
 
-  double _getTotalExpenseForPeriod(Duration period) {
-    DateTime now = DateTime.now();
-    DateTime startDate = now.subtract(period);
-    return WalletService.getHistory()
-        .where((history) => history.expense != null && history.dateAdded.isAfter(startDate))
-        .map((history) => history.expense!.amount)
-        .fold(0.0, (sum, amount) => sum + amount);
+  String formatPercentage(double value) {
+    return "${(value * 100).toStringAsFixed(0)}%";
+  }
+
+  Color getPercentageColor(double value) {
+    if (value < 0.5) {
+      return Colors.green;
+    } else if (value == 0.5) {
+      return Colors.yellow;
+    } else {
+      return Colors.red;
+    }
   }
 
   @override
@@ -121,14 +126,18 @@ class _WalletPageState extends State<WalletPage> {
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                   const SizedBox(height: 12),
+                  const Text(
+                    "Expense",
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
                   ValueListenableBuilder(
-                    valueListenable: WalletService.listenToHistory(),
-                    builder: (context, Box<History> box, _) {
-                      List<History> historyList = box.values.toList().reversed.toList();
+                    valueListenable: WalletService.listenToExpenses(),
+                    builder: (context, Box<Expenses> box, _) {
+                      List<Expenses> expensesList = box.values.toList().reversed.toList();
 
-                      if (historyList.isEmpty) {
+                      if (expensesList.isEmpty) {
                         return const Text(
-                          "No transaction history yet.",
+                          "No expense history yet.",
                           style: TextStyle(color: Colors.white),
                         );
                       }
@@ -141,16 +150,16 @@ class _WalletPageState extends State<WalletPage> {
                           child: ListView.builder(
                             physics: const BouncingScrollPhysics(),
                             padding: EdgeInsets.zero,
-                            itemCount: historyList.length,
+                            itemCount: expensesList.length,
                             itemBuilder: (context, index) {
-                              final history = historyList[index];
-                              bool isSaving = history.saving != null;
-                              String title = isSaving ? history.saving!.description : history.expense!.description;
-                              String type = isSaving ? "Saving" : "Expense";
-                              double amount = isSaving ? history.saving!.amount : history.expense!.amount;
+                              final expense = expensesList[index]; // Change variable name to `expense`
+
+                              // Extract data from the Expenses object
+                              String title = expense.description;
+                              double amount = expense.amount;
 
                               return Dismissible(
-                                key: Key(history.id.toString()),
+                                key: Key(expense.id.toString()),
                                 direction: DismissDirection.endToStart,
                                 background: Container(
                                   alignment: Alignment.centerRight,
@@ -159,9 +168,66 @@ class _WalletPageState extends State<WalletPage> {
                                   child: const Icon(Icons.delete, color: Colors.white),
                                 ),
                                 onDismissed: (direction) {
-                                  WalletService.deleteExpenseFromHistory(history);
+                                  WalletService.deleteExpense(expense);
                                 },
-                                child: _buildTransactionItem(history.id.toString(), title, type, formatRupiah(amount)),
+                                child: _buildTransactionItem(
+                                  expense.id.toString(),
+                                  title,
+                                  "Expense", // Since it's always an expense
+                                  formatRupiah(amount),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Savings",
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  ValueListenableBuilder(
+                    valueListenable: WalletService.listenToSavings(),
+                    builder: (context, Box<Savings> box, _) {
+                      List<Savings> savingsList = box.values.toList().reversed.toList();
+
+                      if (savingsList.isEmpty) {
+                        return const Text(
+                          "No savings history yet.",
+                          style: TextStyle(color: Colors.white),
+                        );
+                      }
+
+                      return SizedBox(
+                        height: 250,
+                        child: Scrollbar(
+                          thickness: 3,
+                          radius: const Radius.circular(8),
+                          child: ListView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            padding: EdgeInsets.zero,
+                            itemCount: savingsList.length,
+                            itemBuilder: (context, index) {
+                              final saving = savingsList[index];
+                              String title = saving.description;
+                              String type = "Saving";
+                              double percentage = saving.percentage;
+
+                              return Dismissible(
+                                key: Key(saving.id.toString()),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  color: Colors.red,
+                                  child: const Icon(Icons.delete, color: Colors.white),
+                                ),
+                                onDismissed: (direction) {
+                                  // WalletService.deleteExpenseFromHistory(history);
+                                },
+                                child: _buildTransactionItem(saving.id.toString(), title, type, formatPercentage(percentage)),
                               );
                             },
                           ),
@@ -176,13 +242,12 @@ class _WalletPageState extends State<WalletPage> {
 
             // Summary Cards
             ValueListenableBuilder(
-              valueListenable: WalletService.listenToHistory(),
-              builder: (context, Box<History> box, _) {
-                List<History> historyList = box.values.toList();
+              valueListenable: WalletService.listenToExpenses(),
+              builder: (context, Box<Expenses> box, _) {
 
-                double totalMonthly = _getTotalExpenseForPeriod(const Duration(days: 30));
-                double totalWeekly = _getTotalExpenseForPeriod(const Duration(days: 7));
-                double totalDaily = _getTotalExpenseForPeriod(const Duration(days: 1));
+                double totalMonthly = WalletService.getTotalExpenseForPeriod(const Duration(days: 30));
+                double totalWeekly = WalletService.getTotalExpenseForPeriod(const Duration(days: 7));
+                double totalDaily = WalletService.getTotalExpenseForPeriod(const Duration(days: 1));
 
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

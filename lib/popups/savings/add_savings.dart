@@ -2,27 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 import 'package:intl/intl.dart'; // Import for formatting
 
-class AddMainExpenseDialog extends StatefulWidget {
+class AddSavings extends StatefulWidget {
   @override
-  State<AddMainExpenseDialog> createState() => _AddMainExpenseDialogState();
+  State<AddSavings> createState() => _AddSavingsState();
 }
 
-class _AddMainExpenseDialogState extends State<AddMainExpenseDialog> {
+class _AddSavingsState extends State<AddSavings> {
   final TextEditingController titleController = TextEditingController();
   final TextEditingController _controller = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
+  final TextEditingController _percentageController = TextEditingController();
   
   @override
   void initState() {
     super.initState();
     _controller.addListener(_formatInput);
+    _percentageController.addListener(_formatPercentage);
   }
 
   @override
   void dispose() {
     _controller.removeListener(_formatInput);
     _controller.dispose();
+    _percentageController.removeListener(_formatPercentage);
+    _percentageController.dispose();
     titleController.dispose();
     super.dispose();
   }
@@ -38,12 +42,26 @@ class _AddMainExpenseDialogState extends State<AddMainExpenseDialog> {
     }
   }
 
+  // Format percentage input (e.g., "25%" but store as 0.25)
+  void _formatPercentage() {
+    String text = _percentageController.text.replaceAll('%', '').trim();
+    if (text.isNotEmpty) {
+      double value = double.tryParse(text) ?? 0;
+      _percentageController.value = TextEditingValue(
+        text: "$value%", // Display as "xx%"
+        selection: TextSelection.collapsed(offset: _percentageController.text.length),
+      );
+    }
+  }
+
+  // to modify here : submit uses addSaving function from wallet service
   void _submit() async{
-    String rawText = _controller.text.replaceAll('.', ''); // Remove formatting
-    if (rawText.isNotEmpty) {
-      String description = titleController.text;
-      double amount = double.parse(rawText);
-      await WalletService.addExpense(description, amount);
+    String target = _controller.text.replaceAll('.', ''); // Remove formatting
+    String percentageText = _percentageController.text.replaceAll('%', '').trim();
+    double percentage = double.parse(percentageText) / 100; // Convert to decimal
+    String description = titleController.text;
+    if (target.isNotEmpty && percentage != 0.0 && description.isNotEmpty) {
+      await WalletService.addSaving(description, percentage, 0, double.parse(target));
       Navigator.of(context).pop(); // Close dialog
     }
   }
@@ -57,7 +75,7 @@ class _AddMainExpenseDialogState extends State<AddMainExpenseDialog> {
         side: const BorderSide(color: Colors.white, width: 1)
       ),
       title: const Text(
-        "Add Expense",
+        "Add Savings",
         style: TextStyle(
           color: Colors.yellow,
           fontWeight: FontWeight.bold,
@@ -85,11 +103,38 @@ class _AddMainExpenseDialogState extends State<AddMainExpenseDialog> {
             ),
             const SizedBox(height: 10),
 
-            // Amount Field
+            // to modify here : make a percentage converter from double to percent but still saved as double inside hive
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                "Amount",
+                "Percentage",
+                style: TextStyle(color: Colors.yellow),
+              ),
+            ),
+            TextFormField(
+              controller: _percentageController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.grey[900],
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.grey),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Colors.yellow),
+                ),
+              ),
+              validator: (value) =>
+                  value == null || value.isEmpty ? "Percentage is required" : null,
+            ),
+
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Target",
                 style: TextStyle(color: Colors.yellow),
               ),
             ),
@@ -110,24 +155,7 @@ class _AddMainExpenseDialogState extends State<AddMainExpenseDialog> {
                 ),
               ),
               validator: (value) =>
-                  value == null || value.isEmpty ? "Title is required" : null,
-            ),
-            // Current Balance Display
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Current Balance:",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  Text(
-                    "Rp ${currencyFormatter.format(WalletService.getBalance())}",
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+                  value == null || value.isEmpty ? "Target is required" : null,
             ),
           ],
         ),
@@ -143,7 +171,7 @@ class _AddMainExpenseDialogState extends State<AddMainExpenseDialog> {
 
             const SizedBox(width: 10),
 
-            // Save Button
+            
             _actionButton("Save", Colors.yellow, _submit),
           ],
         ),

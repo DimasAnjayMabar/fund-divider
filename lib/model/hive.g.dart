@@ -59,7 +59,7 @@ class SavingsAdapter extends TypeAdapter<Savings> {
       percentage: fields[2] as double,
       amount: fields[3] as double,
       target: fields[4] as double,
-      isDeleted: fields[5] as bool,
+      date_added: fields[6] as DateTime,
     );
   }
 
@@ -77,8 +77,8 @@ class SavingsAdapter extends TypeAdapter<Savings> {
       ..write(obj.amount)
       ..writeByte(4)
       ..write(obj.target)
-      ..writeByte(5)
-      ..write(obj.isDeleted);
+      ..writeByte(6)
+      ..write(obj.date_added);
   }
 
   @override
@@ -106,19 +106,22 @@ class ExpensesAdapter extends TypeAdapter<Expenses> {
       id: fields[0] as int,
       description: fields[1] as String,
       amount: fields[2] as double,
+      date_added: fields[3] as DateTime,
     );
   }
 
   @override
   void write(BinaryWriter writer, Expenses obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.description)
       ..writeByte(2)
-      ..write(obj.amount);
+      ..write(obj.amount)
+      ..writeByte(3)
+      ..write(obj.date_added);
   }
 
   @override

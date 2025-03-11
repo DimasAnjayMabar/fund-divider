@@ -42,7 +42,7 @@ class _AddFundDialogState extends State<AddFundDialog> {
     String rawText = _controller.text.replaceAll('.', ''); // Remove formatting
     if (rawText.isNotEmpty) {
       double amount = double.parse(rawText);
-      WalletService.updateBalance(amount); // Update balance
+      WalletService.updateBalanceToWallet(amount); // Update balance
       Navigator.pop(context); // Close dialog
     }
   }

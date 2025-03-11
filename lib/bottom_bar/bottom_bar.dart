@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/navbar.dart';
 import 'package:fund_divider/pages/expenses_page.dart';
+import 'package:fund_divider/pages/savings_page.dart';
 import 'package:fund_divider/pages/wallet_page.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
@@ -16,7 +17,8 @@ class _BottomBarState extends State<BottomBar> {
 
   final List<Widget>_pages = [
     const WalletPage(), 
-    const ExpensesPage()
+    const ExpensesPage(), 
+    const SavingsPage()
   ];
 
 
