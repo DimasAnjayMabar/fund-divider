@@ -59,7 +59,7 @@ class _SavingsPageState extends State<SavingsPage> {
                           showDialog(
                             context: context,
                             builder: (BuildContext context) {
-                              return EditExpenses(expenseId: expense.id); // ✅ Ensure widget is returned
+                              return EditExpenses(expenseId: expense.id); //to do : edit savings
                             },
                           );
                         },
@@ -105,6 +105,7 @@ class _SavingsPageState extends State<SavingsPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          //to do : add target and placed below the title
           Text(amount, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       ),

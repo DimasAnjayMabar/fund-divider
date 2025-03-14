@@ -49,31 +49,26 @@ class WalletService {
   }
 
   static Future<void> updateBalanceToWallet(double amount) async {
-    double currentBalance = getBalance();
-    double newBalance = currentBalance + amount;
-
     var savingsBox = Hive.box<Savings>('savingsBox');
+    var walletBox = Hive.box<Wallet>('walletBox');
+
     List<Savings> savingsList = savingsBox.values.toList();
+    double savingsFund = 0.0;
 
     if (savingsList.isNotEmpty) {
-      double totalPercentage = savingsList.fold(0, (sum, s) => sum + s.percentage);
-      
-      if (totalPercentage > 0) {
-        for (var saving in savingsList) {
-          double savingAmount = (amount * (saving.percentage / totalPercentage));
-
-          // Update saving amount
-          saving.amount += savingAmount;
-          savingsBox.put(saving.id, saving);
-
-          // Deduct from balance
-          newBalance -= savingAmount;
-        }
+      for (var saving in savingsList) {
+        double savingAmount = amount * (saving.percentage); // Use the saved percentage
+        saving.amount += savingAmount;
+        savingsFund += savingAmount;
+        await savingsBox.put(saving.id, saving);
       }
     }
 
-    // Update the wallet balance after savings deduction
-    await _walletBox.put('main', Wallet(id: 1, balance: newBalance));
+    // Remaining amount goes to wallet
+    double walletFund = amount - savingsFund;
+    Wallet wallet = walletBox.get('main', defaultValue: Wallet(id: 1, balance: 0.0))!;
+    wallet.balance += walletFund;
+    await walletBox.put('main', wallet);
   }
 
   /// **Add Saving**
@@ -94,6 +89,7 @@ class WalletService {
     await _savingsBox.put(id, newSaving);
   }
 
+  //to do : delete savings and restore the balance that taken from the savings.amount
 
   /// **Add Expense**
   static Future<void> addExpense(String description, double amount) async {
