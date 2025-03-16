@@ -1,3 +1,5 @@
+import 'dart:js_interop';
+
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/hive.dart';
 import 'package:fund_divider/popups/expenses/add_expense_dialog.dart';
@@ -53,20 +55,22 @@ class _SavingsPageState extends State<SavingsPage> {
                   return ListView.builder(
                     itemCount: savings.length,
                     itemBuilder: (context, index) {
-                      final expense = savings[index];
+                      final saving = savings[index];
+                      double remainingTarget = saving.target - saving.amount;
                       return GestureDetector(
                         onTap: () {
                           showDialog(
                             context: context,
                             builder: (BuildContext context) {
-                              return EditExpenses(expenseId: expense.id); //to do : edit savings
+                              return EditExpenses(expenseId: saving.id); //to do : edit savings
                             },
                           );
                         },
                         child: _buildExpenseCard(
-                          title: expense.description,
-                          amount: formatRupiah(expense.amount),
+                          title: saving.description,
+                          amount: formatRupiah(saving.amount),
                           color: Colors.red,
+                          remainingTarget: formatRupiah(remainingTarget),
                         ),
                       );
                     },
@@ -92,7 +96,12 @@ class _SavingsPageState extends State<SavingsPage> {
     );
   }
 
-  Widget _buildExpenseCard({required String title, required String amount, required Color color}) {
+  Widget _buildExpenseCard({
+    required String title,
+    required String amount,
+    required Color color,
+    String? remainingTarget,
+  }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
@@ -101,12 +110,30 @@ class _SavingsPageState extends State<SavingsPage> {
         border: Border.all(color: Colors.grey[800]!),
       ),
       padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-          //to do : add target and placed below the title
-          Text(amount, style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                amount,
+                style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          if (remainingTarget != null) // Ensure it's not null before displaying
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                "$remainingTarget left to reach target",
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            ),
         ],
       ),
     );

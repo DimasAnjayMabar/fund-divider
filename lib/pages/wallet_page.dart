@@ -225,7 +225,7 @@ class _WalletPageState extends State<WalletPage> {
                                   child: const Icon(Icons.delete, color: Colors.white),
                                 ),
                                 onDismissed: (direction) {
-                                  // WalletService.deleteExpenseFromHistory(history);
+                                  WalletService.deleteSaving(saving);
                                 },
                                 child: _buildTransactionItem(saving.id.toString(), title, type, formatPercentage(percentage)),
                               );

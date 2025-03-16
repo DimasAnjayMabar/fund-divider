@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:fund_divider/model/error_handler.dart';
 import 'package:fund_divider/model/hive.dart';
 import 'package:hive/hive.dart';
@@ -89,7 +88,19 @@ class WalletService {
     await _savingsBox.put(id, newSaving);
   }
 
-  //to do : delete savings and restore the balance that taken from the savings.amount
+  /// **Delete Saving and Restore Balance**
+  static Future<void> deleteSaving(Savings saving) async {
+    var savingsBox = Hive.box<Savings>('savingsBox');
+
+    double amountToRestore = 0.0;
+
+    if(savingsBox.containsKey(saving.id)){
+      amountToRestore = saving.amount;
+      await savingsBox.delete(saving.id);
+    }
+
+    updateBalance(amountToRestore);
+  }
 
   /// **Add Expense**
   static Future<void> addExpense(String description, double amount) async {
@@ -116,17 +127,6 @@ class WalletService {
 
     // Store the Expense object in the box
     await _expensesBox.put(id, newExpense);
-
-    // Create and store the History record with a reference to the new expense
-    // Create and store the History record with a reference to the new expense
-    History historyEntry = History(
-      id: id, // Unique history ID
-      saving: null, // No saving since this is an expense
-      expense: newExpense, // Store FULL Expense object instead of ID
-      dateAdded: DateTime.now(),
-    );
-    
-    await _historyBox.add(historyEntry);
   }
 
   static Future<void> deleteExpense(Expenses expense) async {
@@ -150,18 +150,6 @@ class WalletService {
     }).toList();
   }
 
-  /// **Get Expense History**
-  static List<History> getHistory() {
-    return _historyBox.values.map((history) {
-      return History(
-        id: history.id,
-        saving: history.saving, 
-        expense: history.expense is int ? getExpenseById(history.expense as int) : history.expense,
-        dateAdded: history.dateAdded,
-      );
-    }).toList();
-  }
-
   static double getTotalExpenseForPeriod(Duration period) {
     DateTime now = DateTime.now();
     DateTime startDate = now.subtract(period);
@@ -178,10 +166,6 @@ class WalletService {
 
   static Expenses? getExpenseById(int id) {
     return _expensesBox.get(id);
-  }
-
-  static ValueListenable<Box<History>> listenToHistory() {
-    return _historyBox.listenable();
   }
 
     /// **Listen to balance updates**
