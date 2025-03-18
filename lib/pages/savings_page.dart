@@ -1,10 +1,8 @@
-import 'dart:js_interop';
-
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/hive.dart';
-import 'package:fund_divider/popups/expenses/add_expense_dialog.dart';
-import 'package:fund_divider/popups/expenses/edit_expenses.dart';
 import 'package:fund_divider/popups/savings/add_savings.dart';
+import 'package:fund_divider/popups/savings/deposit_saving.dart';
+import 'package:fund_divider/popups/savings/edit_savings.dart';
 import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -16,12 +14,6 @@ class SavingsPage extends StatefulWidget {
 }
 
 class _SavingsPageState extends State<SavingsPage> {
-  @override
-  void initState() {
-    super.initState();
-    // No need to open the box here as WalletService already handles it
-  }
-
   String formatRupiah(double value) {
     return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0)
         .format(value);
@@ -51,26 +43,46 @@ class _SavingsPageState extends State<SavingsPage> {
                   }
 
                   final savings = box.values.toList();
-                  
+
                   return ListView.builder(
                     itemCount: savings.length,
                     itemBuilder: (context, index) {
                       final saving = savings[index];
                       double remainingTarget = saving.target - saving.amount;
-                      return GestureDetector(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return EditExpenses(expenseId: saving.id); //to do : edit savings
-                            },
-                          );
+
+                      return Dismissible(
+                        key: Key(saving.id.toString()),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          color: Colors.green,
+                          child: const Icon(Icons.account_balance_wallet, color: Colors.white),
+                        ),
+                        confirmDismiss: (direction) async {
+                          if (direction == DismissDirection.endToStart) {
+                            showDialog(context: context, builder: (BuildContext context){
+                                return DepositSaving(savingId: saving.id);
+                            });
+                            return false;
+                          }
+                          return false;
                         },
-                        child: _buildExpenseCard(
-                          title: saving.description,
-                          amount: formatRupiah(saving.amount),
-                          color: Colors.red,
-                          remainingTarget: formatRupiah(remainingTarget),
+                        child: GestureDetector(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return EditSavings(savingsId: saving.id);
+                              },
+                            );
+                          },
+                          child: _buildSavingCard(
+                            title: saving.description,
+                            amount: formatRupiah(saving.amount),
+                            color: Colors.red,
+                            remainingTarget: formatRupiah(remainingTarget),
+                          ),
                         ),
                       );
                     },
@@ -96,7 +108,7 @@ class _SavingsPageState extends State<SavingsPage> {
     );
   }
 
-  Widget _buildExpenseCard({
+  Widget _buildSavingCard({
     required String title,
     required String amount,
     required Color color,
@@ -126,7 +138,7 @@ class _SavingsPageState extends State<SavingsPage> {
               ),
             ],
           ),
-          if (remainingTarget != null) // Ensure it's not null before displaying
+          if (remainingTarget != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
@@ -139,5 +151,3 @@ class _SavingsPageState extends State<SavingsPage> {
     );
   }
 }
-
-

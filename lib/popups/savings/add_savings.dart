@@ -8,58 +8,67 @@ class AddSavings extends StatefulWidget {
 }
 
 class _AddSavingsState extends State<AddSavings> {
-  final TextEditingController titleController = TextEditingController();
-  final TextEditingController _controller = TextEditingController();
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController targetController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
-  final TextEditingController _percentageController = TextEditingController();
+  final TextEditingController percentageController = TextEditingController();
   
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_formatInput);
-    _percentageController.addListener(_formatPercentage);
+    targetController.addListener(_formatInput);
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_formatInput);
-    _controller.dispose();
-    _percentageController.removeListener(_formatPercentage);
-    _percentageController.dispose();
-    titleController.dispose();
+    targetController.removeListener(_formatInput);
+    targetController.dispose();
+    // percentageController.removeListener(_formatPercentage);
+    percentageController.dispose();
+    descriptionController.dispose();
     super.dispose();
   }
 
   void _formatInput() {
-    String text = _controller.text.replaceAll('.', ''); // Remove existing dots
+    String text = targetController.text.replaceAll('.', ''); // Remove existing dots
     if (text.isNotEmpty) {
       double value = double.parse(text);
-      _controller.value = TextEditingValue(
+      targetController.value = TextEditingValue(
         text: currencyFormatter.format(value), // Format with thousand separator
-        selection: TextSelection.collapsed(offset: _controller.text.length),
+        selection: TextSelection.collapsed(offset: targetController.text.length),
       );
     }
   }
 
-  // Format percentage input (e.g., "25%" but store as 0.25)
-  void _formatPercentage() {
-    String text = _percentageController.text.replaceAll('%', '').trim();
-    if (text.isNotEmpty) {
-      double value = double.tryParse(text) ?? 0;
-      _percentageController.value = TextEditingValue(
-        text: "$value%", // Display as "xx%"
-        selection: TextSelection.collapsed(offset: _percentageController.text.length),
+  // // Format percentage input (e.g., "25%" but store as 0.25)
+  // void _formatPercentage() {
+  //   String text = percentageController.text.replaceAll('%', '').trim();
+  //   if (text.isNotEmpty) {
+  //     double value = double.tryParse(text) ?? 0;
+  //     percentageController.text = "$value%";
+  //     percentageController.selection = TextSelection.collapsed(offset: percentageController.text.length);
+  //   }
+  // }
+
+  void _onPercentageChanged(String value){
+    String clean = value.replaceAll('%', '').trim();
+    if(clean.isNotEmpty && !value.endsWith('%')){
+      double num = double.tryParse(clean) ?? 0;
+      String newText = "$num%";
+      percentageController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newText.length - 1)
       );
     }
   }
 
   // to modify here : submit uses addSaving function from wallet service
   void _submit() async{
-    String target = _controller.text.replaceAll('.', ''); // Remove formatting
-    String percentageText = _percentageController.text.replaceAll('%', '').trim();
+    String target = targetController.text.replaceAll('.', ''); // Remove formatting
+    String percentageText = percentageController.text.replaceAll('%', '').trim();
     double percentage = double.parse(percentageText) / 100; // Convert to decimal
-    String description = titleController.text;
+    String description = descriptionController.text;
     if (target.isNotEmpty && percentage != 0.0 && description.isNotEmpty) {
       await WalletService.addSaving(description, percentage, 0, double.parse(target));
       Navigator.of(context).pop(); // Close dialog
@@ -95,7 +104,7 @@ class _AddSavingsState extends State<AddSavings> {
               ),
             ),
             TextFormField(
-              controller: titleController,
+              controller: descriptionController,
               style: const TextStyle(color: Colors.white),
               decoration: _inputDecoration(),
               validator: (value) =>
@@ -112,8 +121,9 @@ class _AddSavingsState extends State<AddSavings> {
               ),
             ),
             TextFormField(
-              controller: _percentageController,
-              keyboardType: TextInputType.number,
+              controller: percentageController,
+              onChanged: _onPercentageChanged,
+              keyboardType: TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 filled: true,
@@ -139,7 +149,7 @@ class _AddSavingsState extends State<AddSavings> {
               ),
             ),
             TextFormField(
-              controller: _controller,
+              controller: targetController,
               keyboardType: TextInputType.number,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(

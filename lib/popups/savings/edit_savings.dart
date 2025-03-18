@@ -1,72 +1,96 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/hive.dart';
-import 'package:fund_divider/storage/money_storage.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 
-class EditExpenses extends StatefulWidget {
-  final int expenseId; // Accept expense ID
+class EditSavings extends StatefulWidget {
+  final int savingsId; // Accept expense ID
 
-  const EditExpenses({Key? key, required this.expenseId}) : super(key: key);
+  const EditSavings({Key? key, required this.savingsId}) : super(key: key);
 
   @override
-  State<EditExpenses> createState() => _EditExpensesState();
+  State<EditSavings> createState() => _EditSavingsState();
 }
 
-class _EditExpensesState extends State<EditExpenses> {
-  final TextEditingController titleController = TextEditingController();
-  final TextEditingController _controller = TextEditingController();
+class _EditSavingsState extends State<EditSavings> {
+  final TextEditingController descriptionController = TextEditingController();
+  final TextEditingController percentageController = TextEditingController();
+  final TextEditingController targetController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
 
   @override
   void initState() {
     super.initState();
-    _loadExpense();
-    _controller.addListener(_formatInput);
+    _loadSaving();
+    targetController.addListener(_formatInput);
   }
 
-  void _loadExpense() {
-    var expenseBox = Hive.box<Expenses>('expensesBox');
-    var expense = expenseBox.get(widget.expenseId);
+  @override
+  void dispose(){
+    targetController.removeListener(_formatInput);
+    targetController.dispose();
+    percentageController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
 
-    if (expense != null) {
-      titleController.text = expense.description;
-      _controller.text = currencyFormatter.format(expense.amount);
+  void _loadSaving() {
+    var savingsBox = Hive.box<Savings>('savingsBox');
+    var saving = savingsBox.get(widget.savingsId);
+
+    if (saving != null) {
+      descriptionController.text = saving.description;
+      targetController.text = currencyFormatter.format(saving.target);
+      String rawText = saving.percentage.toString().replaceAll('0.', '');
+      _onPercentageChanged(rawText);
     }
   }
 
   void _formatInput() {
-    String text = _controller.text.replaceAll('.', ''); // Remove existing dots
+    String text = targetController.text.replaceAll('.', ''); // Remove existing dots
     if (text.isNotEmpty) {
       double value = double.parse(text);
-      _controller.value = TextEditingValue(
+      targetController.value = TextEditingValue(
         text: currencyFormatter.format(value), // Format with thousand separator
-        selection: TextSelection.collapsed(offset: _controller.text.length),
+        selection: TextSelection.collapsed(offset: targetController.text.length),
+      );
+    }
+  }
+
+  void _onPercentageChanged(String value){
+    String clean = value.replaceAll('%', '').trim();
+    if(clean.isEmpty){
+      percentageController.text = '';
+      return;
+    }
+    double num = double.tryParse(clean) ?? 0;
+    String newText = "$num%";
+    if(percentageController.text != newText){
+      percentageController.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newText.length - 1)
       );
     }
   }
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
-      String rawText = _controller.text.replaceAll('.', '');
-      double newAmount = double.parse(rawText);
-      String newDescription = titleController.text;
+      String rawTarget = targetController.text.replaceAll('.', '');
+      String rawPercentage = percentageController.text.replaceAll('%', '');
+      double newTarget = double.parse(rawTarget);
+      String newDescription = descriptionController.text;
+      double newPercentage = double.parse(rawPercentage);
 
-      var expenseBox = Hive.box<Expenses>('expensesBox');
-      var expense = expenseBox.get(widget.expenseId);
+      var savingsBox = Hive.box<Savings>('savingsBox');
+      var saving = savingsBox.get(widget.savingsId);
 
-      if (expense != null) {
-        double oldAmount = expense.amount;
-        double difference = newAmount - oldAmount;
-
+      if (saving != null) {
         // Update expense fields
-        expense.description = newDescription;
-        expense.amount = newAmount;
-        await expenseBox.put(widget.expenseId, expense);
-
-        // Adjust the balance
-        WalletService.updateBalance(-difference);
+        saving.description = newDescription;
+        saving.target = newTarget;
+        saving.percentage = newPercentage / 100;
+        await savingsBox.put(widget.savingsId, saving);
       }
 
       Navigator.of(context).pop();
@@ -101,7 +125,7 @@ class _EditExpensesState extends State<EditExpenses> {
               ),
             ),
             TextFormField(
-              controller: titleController,
+              controller: descriptionController,
               style: const TextStyle(color: Colors.white),
               decoration: _inputDecoration(),
               validator: (value) => value == null || value.isEmpty ? "Description is required" : null,
@@ -110,16 +134,32 @@ class _EditExpensesState extends State<EditExpenses> {
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                "Amount", 
+                "Percentage", 
                 style: TextStyle(color: Colors.yellow),
               ),
             ),
             TextFormField(
-              controller: _controller,
+              controller: percentageController,
+              onChanged: _onPercentageChanged,
               style: const TextStyle(color: Colors.white),
               keyboardType: TextInputType.number,
               decoration: _inputDecoration(),
-              validator: (value) => value == null || value.isEmpty ? "Description is required" : null,
+              validator: (value) => value == null || value.isEmpty ? "Percentage is required" : null,
+            ),
+            const SizedBox(height: 10,),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Target", 
+                style: TextStyle(color: Colors.yellow),
+              ),
+            ),
+            TextFormField(
+              controller: targetController,
+              style: const TextStyle(color: Colors.white),
+              keyboardType: TextInputType.number,
+              decoration: _inputDecoration(),
+              validator: (value) => value == null || value.isEmpty ? "Target is required" : null,
             ),
           ],
         ),
@@ -137,7 +177,7 @@ class _EditExpensesState extends State<EditExpenses> {
     );
   }
 
-  InputDecoration _inputDecoration() {
+   InputDecoration _inputDecoration() {
     return InputDecoration(
       filled: true,
       fillColor: Colors.grey[900],
