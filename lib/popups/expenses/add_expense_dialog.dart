@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fund_divider/popups/error/error.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 import 'package:intl/intl.dart'; // Import for formatting
 

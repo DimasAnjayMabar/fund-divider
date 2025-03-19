@@ -3,6 +3,7 @@ import 'package:fund_divider/model/error_handler.dart';
 import 'package:fund_divider/model/hive.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
 
 class WalletService {
   static late Box<Wallet> _walletBox;
@@ -105,9 +106,10 @@ class WalletService {
   /// **Add Expense**
   static Future<void> addExpense(String description, double amount) async {
     double currentBalance = getBalance();
+    final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
 
     if (amount > currentBalance) {
-      ErrorHandler.showError("Not enough balance!");
+      ErrorHandler.showError("Insufficient balance. Your current balance is Rp ${currencyFormatter.format(currentBalance)}.");
       return;
     }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/hive.dart';
+import 'package:fund_divider/popups/confirmation/confirmation_popup.dart';
 import 'package:fund_divider/popups/wallet/add_fund_dialog.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 import 'package:intl/intl.dart';
@@ -167,8 +168,22 @@ class _WalletPageState extends State<WalletPage> {
                                   color: Colors.red,
                                   child: const Icon(Icons.delete, color: Colors.white),
                                 ),
-                                onDismissed: (direction) {
-                                  WalletService.deleteExpense(expense);
+                                confirmDismiss: (direction) async {
+                                  if(direction == DismissDirection.endToStart){
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => ConfirmationPopup(
+                                        title: "Delete Expense",
+                                        errorMessage: "Are you sure you want to delete this expense?",
+                                        onConfirm: () {
+                                          WalletService.deleteExpense(expense);
+                                        },
+                                      ),
+                                    );
+                                    return false;
+                                  }else{
+                                    return false;
+                                  }
                                 },
                                 child: _buildTransactionItem(
                                   expense.id.toString(),
@@ -224,8 +239,22 @@ class _WalletPageState extends State<WalletPage> {
                                   color: Colors.red,
                                   child: const Icon(Icons.delete, color: Colors.white),
                                 ),
-                                onDismissed: (direction) {
-                                  WalletService.deleteSaving(saving);
+                                confirmDismiss: (direction) async {
+                                  if(direction == DismissDirection.endToStart){
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => ConfirmationPopup(
+                                        title: "Delete Saving",
+                                        errorMessage: "Are you sure you want to delete this saving?",
+                                        onConfirm: () {
+                                          WalletService.deleteSaving(saving); // Function to be executed
+                                        },
+                                      ),
+                                    );
+                                    return false;
+                                  }else{
+                                    return false;
+                                  }
                                 },
                                 child: _buildTransactionItem(saving.id.toString(), title, type, formatPercentage(percentage)),
                               );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/hive.dart';
+import 'package:fund_divider/popups/error/error.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
@@ -19,13 +20,13 @@ class _DepositSavingState extends State<DepositSaving> {
   final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
     depositController.addListener(_formatInput);
   }
 
   @override
-  void dispose(){
+  void dispose() {
     super.dispose();
     depositController.removeListener(_formatInput);
     depositController.dispose();
@@ -63,7 +64,6 @@ class _DepositSavingState extends State<DepositSaving> {
     );
   }
 
-  
   void _formatInput() {
     String text = depositController.text.replaceAll('.', ''); // Remove existing dots
     if (text.isNotEmpty) {
@@ -77,26 +77,32 @@ class _DepositSavingState extends State<DepositSaving> {
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
-      double depositAmount = double.tryParse(depositController.text) ?? 0;
+      String rawInput = depositController.text.replaceAll('.', '').replaceAll(',', '');
+      double depositAmount = double.tryParse(rawInput) ?? 0;
+
       if (depositAmount > 0) {
-        var savingsBox = Hive.box<Savings>('savingsBox');
-        Savings? saving = savingsBox.get(widget.savingId);
-        if(saving != null){
-          saving.amount += depositAmount;
-          await savingsBox.put(widget.savingId, saving);
-          // Update wallet balance
-          WalletService.updateBalance(-depositAmount);
-          Navigator.pop(context);
+        double currentBalance = WalletService.getBalance();
+
+        // Check if the balance is sufficient
+        if (currentBalance >= depositAmount) {
+          var savingsBox = Hive.box<Savings>('savingsBox');
+          Savings? saving = savingsBox.get(widget.savingId);
+          if (saving != null) {
+            saving.amount += depositAmount;
+            await savingsBox.put(widget.savingId, saving);
+            // Update wallet balance
+            WalletService.updateBalance(-depositAmount);
+            Navigator.pop(context);
+          }
+        } else {
+          // Show error popup if balance is insufficient
+          showDialog(
+            context: context,
+            builder: (context) => ErrorPopup(
+              errorMessage: "Insufficient balance. Your current balance is Rp ${currencyFormatter.format(currentBalance)}.",
+            ),
+          );
         }
-        
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //   SnackBar(
-        //     content: Text(
-        //       "Deposited Rp${NumberFormat.decimalPattern("id_ID").format(depositAmount)} successfully",
-        //     ),
-        //     backgroundColor: Colors.green,
-        //   ),
-        // );
       } else {
         Navigator.pop(context);
       }
@@ -132,6 +138,22 @@ class _DepositSavingState extends State<DepositSaving> {
               decoration: _inputDecoration(),
               validator: (value) =>
                   value == null || value.isEmpty ? "An amount is required" : null,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Current Balance:",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  Text(
+                    "Rp ${currencyFormatter.format(WalletService.getBalance())}",
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
