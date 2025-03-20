@@ -174,7 +174,7 @@ class _WalletPageState extends State<WalletPage> {
                                       context: context,
                                       builder: (context) => ConfirmationPopup(
                                         title: "Delete Expense",
-                                        errorMessage: "Are you sure you want to delete this expense?",
+                                        errorMessage: "Are you sure you want to delete this expense? (this amount of expense will going back to the wallet)",
                                         onConfirm: () {
                                           WalletService.deleteExpense(expense);
                                         },
@@ -245,7 +245,7 @@ class _WalletPageState extends State<WalletPage> {
                                       context: context,
                                       builder: (context) => ConfirmationPopup(
                                         title: "Delete Saving",
-                                        errorMessage: "Are you sure you want to delete this saving?",
+                                        errorMessage: "Are you sure you want to delete this saving? (all the money deposited is going back to the wallet)",
                                         onConfirm: () {
                                           WalletService.deleteSaving(saving); // Function to be executed
                                         },

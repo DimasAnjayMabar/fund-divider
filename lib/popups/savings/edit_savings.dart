@@ -42,8 +42,10 @@ class _EditSavingsState extends State<EditSavings> {
     if (saving != null) {
       descriptionController.text = saving.description;
       targetController.text = currencyFormatter.format(saving.target);
-      String rawText = saving.percentage.toString().replaceAll('0.', '');
-      _onPercentageChanged(rawText);
+      
+      // Correctly convert the percentage back to its original form
+      double percentage = saving.percentage * 100;
+      percentageController.text = "$percentage%";
     }
   }
 
