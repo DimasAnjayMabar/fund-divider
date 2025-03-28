@@ -13,7 +13,7 @@ class _AddSavingsState extends State<AddSavings> {
   final _formKey = GlobalKey<FormState>();
   final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
   final TextEditingController percentageController = TextEditingController();
-  
+
   @override
   void initState() {
     super.initState();
@@ -31,12 +31,14 @@ class _AddSavingsState extends State<AddSavings> {
   }
 
   void _formatInput() {
-    String text = targetController.text.replaceAll('.', ''); // Remove existing dots
+    String text =
+        targetController.text.replaceAll('.', ''); // Remove existing dots
     if (text.isNotEmpty) {
       double value = double.parse(text);
       targetController.value = TextEditingValue(
         text: currencyFormatter.format(value), // Format with thousand separator
-        selection: TextSelection.collapsed(offset: targetController.text.length),
+        selection:
+            TextSelection.collapsed(offset: targetController.text.length),
       );
     }
   }
@@ -51,27 +53,33 @@ class _AddSavingsState extends State<AddSavings> {
   //   }
   // }
 
-  void _onPercentageChanged(String value){
+  void _onPercentageChanged(String value) {
     String clean = value.replaceAll('%', '').trim();
-    if(clean.isNotEmpty && !value.endsWith('%')){
+    if (clean.isNotEmpty && !value.endsWith('%')) {
       double num = double.tryParse(clean) ?? 0;
       String newText = "$num%";
       percentageController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: newText.length - 1)
-      );
+          text: newText,
+          selection: TextSelection.collapsed(offset: newText.length - 1));
     }
   }
 
   // to modify here : submit uses addSaving function from wallet service
-  void _submit() async{
-    String target = targetController.text.replaceAll('.', ''); // Remove formatting
-    String percentageText = percentageController.text.replaceAll('%', '').trim();
-    double percentage = double.parse(percentageText) / 100; // Convert to decimal
+  void _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    String targetText = targetController.text.replaceAll('.', '').trim();
+    String percentageText =
+        percentageController.text.replaceAll('%', '').trim();
+    double percentage = double.tryParse(percentageText) ?? 0.0;
+    double fixedPercentage = percentage / 100;
     String description = descriptionController.text;
-    if (target.isNotEmpty && percentage != 0.0 && description.isNotEmpty) {
-      await WalletService.addSaving(description, percentage, 0, double.parse(target));
-      Navigator.of(context).pop(); // Close dialog
+    double? target = targetText.isNotEmpty ? double.tryParse(targetText) : null;
+
+    if (description.isNotEmpty && fixedPercentage != 0.0) {
+      await WalletService.addSaving(description, fixedPercentage, 0,
+          target ?? 0.0);
+      Navigator.of(context).pop();
     }
   }
 
@@ -80,9 +88,8 @@ class _AddSavingsState extends State<AddSavings> {
     return AlertDialog(
       backgroundColor: Colors.black,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Colors.white, width: 1)
-      ),
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Colors.white, width: 1)),
       title: const Text(
         "Add Savings",
         style: TextStyle(
@@ -107,8 +114,9 @@ class _AddSavingsState extends State<AddSavings> {
               controller: descriptionController,
               style: const TextStyle(color: Colors.white),
               decoration: _inputDecoration(),
-              validator: (value) =>
-                  value == null || value.isEmpty ? "Description is required" : null,
+              validator: (value) => value == null || value.isEmpty
+                  ? "Description is required"
+                  : null,
             ),
             const SizedBox(height: 10),
 
@@ -137,8 +145,9 @@ class _AddSavingsState extends State<AddSavings> {
                   borderSide: const BorderSide(color: Colors.yellow),
                 ),
               ),
-              validator: (value) =>
-                  value == null || value.isEmpty ? "Percentage is required" : null,
+              validator: (value) => value == null || value.isEmpty
+                  ? "Percentage is required"
+                  : null,
             ),
 
             const Align(
@@ -164,8 +173,15 @@ class _AddSavingsState extends State<AddSavings> {
                   borderSide: const BorderSide(color: Colors.yellow),
                 ),
               ),
-              validator: (value) =>
-                  value == null || value.isEmpty ? "Target is required" : null,
+              validator: (value) {
+                if (value != null && value.isNotEmpty) {
+                  final cleanedValue = value.replaceAll('.', '');
+                  if (double.tryParse(cleanedValue) == null) {
+                    return "Invalid number format";
+                  }
+                }
+                return null; // Allow empty value
+              },
             ),
           ],
         ),
@@ -181,7 +197,6 @@ class _AddSavingsState extends State<AddSavings> {
 
             const SizedBox(width: 10),
 
-            
             _actionButton("Save", Colors.yellow, _submit),
           ],
         ),

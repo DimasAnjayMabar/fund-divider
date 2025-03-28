@@ -9,7 +9,6 @@ class WalletService {
   static late Box<Wallet> _walletBox;
   static late Box<Savings> _savingsBox;
   static late Box<Expenses> _expensesBox;
-  static late Box<History> _historyBox;
 
   /// **Initialize Hive**
   static Future<void> init() async {
@@ -23,8 +22,7 @@ class WalletService {
     _walletBox = await Hive.openBox<Wallet>('walletBox');
     _savingsBox = await Hive.openBox<Savings>('savingsBox');
     _expensesBox = await Hive.openBox<Expenses>('expensesBox');
-    _historyBox = await Hive.openBox<History>('historyBox');
-
+    
     if (_walletBox.isEmpty) {
       setInitialBalance(0.0);
     }
