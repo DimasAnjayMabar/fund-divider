@@ -66,8 +66,8 @@ class _WalletPageState extends State<WalletPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 40),
-            const Text(
-              "Morning, Greg!",
+            Text(
+              "$greeting, Greg!",
               style: TextStyle(color: Colors.white, fontSize: 18),
             ),
             const SizedBox(height: 20),

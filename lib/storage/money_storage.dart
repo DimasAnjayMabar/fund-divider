@@ -28,6 +28,18 @@ class WalletService {
     }
   }
 
+  static Future<void> resetBalance() async {
+    await _walletBox.put('main', Wallet(id: 1, balance: 0.0));
+  }
+
+  static Future<void> resetSavings() async {
+    await _savingsBox.clear();
+  }
+
+  static Future<void> resetExpenses() async {
+    await _expensesBox.clear();
+  }
+
   /// **Set initial balance**
   static void setInitialBalance(double amount) {
     if (_walletBox.isEmpty) {
