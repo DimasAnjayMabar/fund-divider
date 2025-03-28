@@ -15,12 +15,27 @@ class WalletPage extends StatefulWidget {
 
 class _WalletPageState extends State<WalletPage> {
   double balance = 0.0;
+  String greeting = "";
 
   @override
   void initState() {
     super.initState();
     WalletService.setInitialBalance(0.0);
     balance = WalletService.getBalance();
+    greeting = getGreeting();
+  }
+
+  String getGreeting(){
+    int hour = DateTime.now().hour;
+    if(hour >= 5 && hour < 12){
+      return "Morning";
+    } else if (hour >= 12 && hour < 17){
+      return "Afternoon";
+    } else if (hour >= 17 && hour < 21){
+      return "Evening";
+    } else {
+      return "Night";
+    }
   }
 
   String formatRupiah(double value) {
