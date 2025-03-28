@@ -81,7 +81,7 @@ class _SavingsPageState extends State<SavingsPage> {
                             title: saving.description,
                             amount: formatRupiah(saving.amount),
                             color: Colors.red,
-                            remainingTarget: formatRupiah(remainingTarget),
+                            remainingTarget: saving.target == 0 ? "This is the main saving" : formatRupiah(remainingTarget),
                           ),
                         ),
                       );
@@ -142,7 +142,7 @@ class _SavingsPageState extends State<SavingsPage> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                "$remainingTarget left to reach target",
+                remainingTarget,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
               ),
             ),

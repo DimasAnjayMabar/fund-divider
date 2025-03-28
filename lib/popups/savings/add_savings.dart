@@ -51,25 +51,37 @@ class _AddSavingsState extends State<AddSavings> {
   //   }
   // }
 
-  void _onPercentageChanged(String value){
-    String clean = value.replaceAll('%', '').trim();
-    if(clean.isNotEmpty && !value.endsWith('%')){
-      double num = double.tryParse(clean) ?? 0;
-      String newText = "$num%";
-      percentageController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: newText.length - 1)
-      );
-    }
-  }
+  // void _onPercentageChanged(String value){
+  //   String clean = value.replaceAll('%', '').trim();
+  //   if(clean.isNotEmpty && !value.endsWith('%')){
+  //     double num = double.tryParse(clean) ?? 0;
+  //     String newText = "$num%";
+  //     percentageController.value = TextEditingValue(
+  //       text: newText,
+  //       selection: TextSelection.collapsed(offset: newText.length - 1)
+  //     );
+  //   }
+  // }
 
   // to modify here : submit uses addSaving function from wallet service
-  void _submit() async{
+  void _submit() async {
+    if (!_formKey.currentState!.validate()) return; // Ensure form is valid
+
     String target = targetController.text.replaceAll('.', ''); // Remove formatting
-    String percentageText = percentageController.text.replaceAll('%', '').trim();
-    double percentage = double.parse(percentageText) / 100; // Convert to decimal
+    String percentageText = percentageController.text.trim();
+    double? percentage = double.tryParse(percentageText);
+
+    if (percentage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Invalid percentage value")),
+      );
+      return;
+    }
+
+    percentage /= 100; // Convert to decimal
     String description = descriptionController.text;
-    if (target.isNotEmpty && percentage != 0.0 && description.isNotEmpty) {
+
+    if (target.isNotEmpty && percentage > 0.0 && description.isNotEmpty) {
       await WalletService.addSaving(description, percentage, 0, double.parse(target));
       Navigator.of(context).pop(); // Close dialog
     }
@@ -122,7 +134,6 @@ class _AddSavingsState extends State<AddSavings> {
             ),
             TextFormField(
               controller: percentageController,
-              onChanged: _onPercentageChanged,
               keyboardType: TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
@@ -136,11 +147,12 @@ class _AddSavingsState extends State<AddSavings> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: Colors.yellow),
                 ),
+                suffixText: '%', // Display percentage sign
+                suffixStyle: const TextStyle(color: Colors.white),
               ),
               validator: (value) =>
                   value == null || value.isEmpty ? "Percentage is required" : null,
             ),
-
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -164,8 +176,6 @@ class _AddSavingsState extends State<AddSavings> {
                   borderSide: const BorderSide(color: Colors.yellow),
                 ),
               ),
-              validator: (value) =>
-                  value == null || value.isEmpty ? "Target is required" : null,
             ),
           ],
         ),
@@ -178,10 +188,7 @@ class _AddSavingsState extends State<AddSavings> {
             _actionButton("Cancel", Colors.yellow, () {
               Navigator.of(context).pop();
             }),
-
             const SizedBox(width: 10),
-
-            
             _actionButton("Save", Colors.yellow, _submit),
           ],
         ),

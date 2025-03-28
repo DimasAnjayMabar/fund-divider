@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/hive.dart';
 import 'package:hive/hive.dart';
-import 'package:intl/intl.dart';
 
 class EditSavings extends StatefulWidget {
-  final int savingsId; // Accept expense ID
+  final int savingsId;
 
   const EditSavings({Key? key, required this.savingsId}) : super(key: key);
 
@@ -17,18 +16,15 @@ class _EditSavingsState extends State<EditSavings> {
   final TextEditingController percentageController = TextEditingController();
   final TextEditingController targetController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
 
   @override
   void initState() {
     super.initState();
     _loadSaving();
-    targetController.addListener(_formatInput);
   }
 
   @override
-  void dispose(){
-    targetController.removeListener(_formatInput);
+  void dispose() {
     targetController.dispose();
     percentageController.dispose();
     descriptionController.dispose();
@@ -41,69 +37,39 @@ class _EditSavingsState extends State<EditSavings> {
 
     if (saving != null) {
       descriptionController.text = saving.description;
-      targetController.text = currencyFormatter.format(saving.target);
-      
-      // Correctly convert the percentage back to its original form
-      double percentage = saving.percentage * 100;
-      percentageController.text = "$percentage%";
-    }
-  }
+      targetController.text = saving.target.toString();
 
-  void _formatInput() {
-    String text = targetController.text.replaceAll('.', ''); // Remove existing dots
-    if (text.isNotEmpty) {
-      double value = double.parse(text);
-      targetController.value = TextEditingValue(
-        text: currencyFormatter.format(value), // Format with thousand separator
-        selection: TextSelection.collapsed(offset: targetController.text.length),
-      );
-    }
-  }
-
-  void _onPercentageChanged(String value){
-    String clean = value.replaceAll('%', '').trim();
-    if(clean.isEmpty){
-      percentageController.text = '';
-      return;
-    }
-    double num = double.tryParse(clean) ?? 0;
-    String newText = "$num%";
-    if(percentageController.text != newText){
-      percentageController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(offset: newText.length - 1)
-      );
+      // Convert 0.20 back to 20 before displaying
+      double humanPercentage = saving.percentage * 100;
+      percentageController.text = humanPercentage.toString();
     }
   }
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
-      String rawTarget = targetController.text.replaceAll('.', '');
-      String rawPercentage = percentageController.text.replaceAll('%', '');
-      double newTarget = double.parse(rawTarget);
+      double newTarget = double.parse(targetController.text);
       String newDescription = descriptionController.text;
-      double newPercentage = double.parse(rawPercentage);
+      double newPercentage = double.parse(percentageController.text) / 100; // Convert 20 back to 0.20
 
       var savingsBox = Hive.box<Savings>('savingsBox');
       var saving = savingsBox.get(widget.savingsId);
 
       if (saving != null) {
-        // Update expense fields
         saving.description = newDescription;
         saving.target = newTarget;
-        saving.percentage = newPercentage / 100;
+        saving.percentage = newPercentage;
         await savingsBox.put(widget.savingsId, saving);
       }
 
       Navigator.of(context).pop();
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text(
-        "Edit Expense", 
+        "Edit Savings",
         style: TextStyle(
           color: Colors.yellow,
           fontWeight: FontWeight.bold,
@@ -111,58 +77,18 @@ class _EditSavingsState extends State<EditSavings> {
       ),
       backgroundColor: Colors.black,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Colors.white, width: 1)
-      ),
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Colors.white, width: 1)),
       content: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Description", 
-                style: TextStyle(color: Colors.yellow),
-              ),
-            ),
-            TextFormField(
-              controller: descriptionController,
-              style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration(),
-              validator: (value) => value == null || value.isEmpty ? "Description is required" : null,
-            ),
-            const SizedBox(height: 10,),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Percentage", 
-                style: TextStyle(color: Colors.yellow),
-              ),
-            ),
-            TextFormField(
-              controller: percentageController,
-              onChanged: _onPercentageChanged,
-              style: const TextStyle(color: Colors.white),
-              keyboardType: TextInputType.number,
-              decoration: _inputDecoration(),
-              validator: (value) => value == null || value.isEmpty ? "Percentage is required" : null,
-            ),
-            const SizedBox(height: 10,),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Target", 
-                style: TextStyle(color: Colors.yellow),
-              ),
-            ),
-            TextFormField(
-              controller: targetController,
-              style: const TextStyle(color: Colors.white),
-              keyboardType: TextInputType.number,
-              decoration: _inputDecoration(),
-              validator: (value) => value == null || value.isEmpty ? "Target is required" : null,
-            ),
+            _buildTextField("Description", descriptionController),
+            const SizedBox(height: 10),
+            _buildPercentageField(),
+            const SizedBox(height: 10),
+            _buildTextField("Target", targetController, isNumeric: true),
           ],
         ),
       ),
@@ -170,8 +96,10 @@ class _EditSavingsState extends State<EditSavings> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _actionButton("Cancel", Colors.yellow, () {Navigator.of(context).pop();}),
-            const SizedBox(width: 10,),
+            _actionButton("Cancel", Colors.yellow, () {
+              Navigator.of(context).pop();
+            }),
+            const SizedBox(width: 10),
             _actionButton("Save", Colors.yellow, _submit)
           ],
         )
@@ -179,7 +107,58 @@ class _EditSavingsState extends State<EditSavings> {
     );
   }
 
-   InputDecoration _inputDecoration() {
+  Widget _buildTextField(String label, TextEditingController controller,
+      {bool isNumeric = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.yellow),
+        ),
+        TextFormField(
+          controller: controller,
+          keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+          style: const TextStyle(color: Colors.white),
+          decoration: _inputDecoration(),
+          validator: (value) =>
+              value == null || value.isEmpty ? "$label is required" : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPercentageField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Percentage",
+          style: TextStyle(color: Colors.yellow),
+        ),
+        TextFormField(
+          controller: percentageController,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: _inputDecoration().copyWith(
+            suffixIcon: const Padding(
+              padding: EdgeInsets.only(right: 10),
+              child: Text(
+                "%",
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ),
+            suffixIconConstraints:
+                const BoxConstraints(minWidth: 0, minHeight: 0),
+          ),
+          validator: (value) =>
+              value == null || value.isEmpty ? "Percentage is required" : null,
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _inputDecoration() {
     return InputDecoration(
       filled: true,
       fillColor: Colors.grey[900],
