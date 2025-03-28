@@ -13,7 +13,7 @@ class _AddSavingsState extends State<AddSavings> {
   final _formKey = GlobalKey<FormState>();
   final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
   final TextEditingController percentageController = TextEditingController();
-  
+
   @override
   void initState() {
     super.initState();
@@ -31,12 +31,14 @@ class _AddSavingsState extends State<AddSavings> {
   }
 
   void _formatInput() {
-    String text = targetController.text.replaceAll('.', ''); // Remove existing dots
+    String text =
+        targetController.text.replaceAll('.', ''); // Remove existing dots
     if (text.isNotEmpty) {
       double value = double.parse(text);
       targetController.value = TextEditingValue(
         text: currencyFormatter.format(value), // Format with thousand separator
-        selection: TextSelection.collapsed(offset: targetController.text.length),
+        selection:
+            TextSelection.collapsed(offset: targetController.text.length),
       );
     }
   }
@@ -82,7 +84,10 @@ class _AddSavingsState extends State<AddSavings> {
     String description = descriptionController.text;
 
     if (target.isNotEmpty && percentage > 0.0 && description.isNotEmpty) {
-      await WalletService.addSaving(description, percentage, 0, double.parse(target));
+      await WalletService.addSaving(description, percentage, 0, double.tryParse(target)!);
+      Navigator.of(context).pop(); // Close dialog
+    }else{
+      await WalletService.addSaving(description, percentage, 0, 0);
       Navigator.of(context).pop(); // Close dialog
     }
   }
@@ -92,9 +97,8 @@ class _AddSavingsState extends State<AddSavings> {
     return AlertDialog(
       backgroundColor: Colors.black,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Colors.white, width: 1)
-      ),
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Colors.white, width: 1)),
       title: const Text(
         "Add Savings",
         style: TextStyle(
@@ -119,8 +123,9 @@ class _AddSavingsState extends State<AddSavings> {
               controller: descriptionController,
               style: const TextStyle(color: Colors.white),
               decoration: _inputDecoration(),
-              validator: (value) =>
-                  value == null || value.isEmpty ? "Description is required" : null,
+              validator: (value) => value == null || value.isEmpty
+                  ? "Description is required"
+                  : null,
             ),
             const SizedBox(height: 10),
 
@@ -147,11 +152,17 @@ class _AddSavingsState extends State<AddSavings> {
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: Colors.yellow),
                 ),
-                suffixText: '%', // Display percentage sign
+                suffixText: '%', 
                 suffixStyle: const TextStyle(color: Colors.white),
               ),
-              validator: (value) =>
-                  value == null || value.isEmpty ? "Percentage is required" : null,
+              validator: (value) {
+                if (value == null || value.isEmpty) return "Percentage is required";
+                double? parsedValue = double.tryParse(value);
+                if (parsedValue == null || parsedValue <= 0 || parsedValue > 100) {
+                  return "Enter a valid percentage (1-100)";
+                }
+                return null;
+              },
             ),
             const Align(
               alignment: Alignment.centerLeft,

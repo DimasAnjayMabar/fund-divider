@@ -15,7 +15,8 @@ class SavingsPage extends StatefulWidget {
 
 class _SavingsPageState extends State<SavingsPage> {
   String formatRupiah(double value) {
-    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0)
+    return NumberFormat.currency(
+            locale: 'id_ID', symbol: 'Rp', decimalDigits: 0)
         .format(value);
   }
 
@@ -49,6 +50,7 @@ class _SavingsPageState extends State<SavingsPage> {
                     itemBuilder: (context, index) {
                       final saving = savings[index];
                       double remainingTarget = saving.target - saving.amount;
+                      bool isMainSaving = saving.target == 0;
 
                       return Dismissible(
                         key: Key(saving.id.toString()),
@@ -57,13 +59,16 @@ class _SavingsPageState extends State<SavingsPage> {
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           color: Colors.green,
-                          child: const Icon(Icons.account_balance_wallet, color: Colors.white),
+                          child: const Icon(Icons.account_balance_wallet,
+                              color: Colors.white),
                         ),
                         confirmDismiss: (direction) async {
                           if (direction == DismissDirection.endToStart) {
-                            showDialog(context: context, builder: (BuildContext context){
-                                return DepositSaving(savingId: saving.id);
-                            });
+                            showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return DepositSaving(savingId: saving.id);
+                                });
                             return false;
                           }
                           return false;
@@ -81,7 +86,7 @@ class _SavingsPageState extends State<SavingsPage> {
                             title: saving.description,
                             amount: formatRupiah(saving.amount),
                             color: Colors.red,
-                            remainingTarget: saving.target == 0 ? "This is the main saving" : formatRupiah(remainingTarget),
+                            remainingTarget: saving.target == 0 ? "This is the main saving" : "${formatRupiah(remainingTarget)} left to reach target",
                           ),
                         ),
                       );
