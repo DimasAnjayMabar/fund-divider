@@ -5,7 +5,7 @@ import 'package:hive/hive.dart';
 class EditSavings extends StatefulWidget {
   final int savingsId;
 
-  const EditSavings({Key? key, required this.savingsId}) : super(key: key);
+  const EditSavings({super.key, required this.savingsId});
 
   @override
   State<EditSavings> createState() => _EditSavingsState();

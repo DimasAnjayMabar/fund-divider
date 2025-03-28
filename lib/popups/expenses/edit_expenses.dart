@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 class EditExpenses extends StatefulWidget {
   final int expenseId; // Accept expense ID
 
-  const EditExpenses({Key? key, required this.expenseId}) : super(key: key);
+  const EditExpenses({super.key, required this.expenseId});
 
   @override
   State<EditExpenses> createState() => _EditExpensesState();

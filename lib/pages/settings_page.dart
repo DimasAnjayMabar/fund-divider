@@ -3,7 +3,7 @@ import 'package:fund_divider/popups/confirmation/confirmation_popup.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({Key? key}) : super(key: key);
+  const SettingsPage({super.key});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();

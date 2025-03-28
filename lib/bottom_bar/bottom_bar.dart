@@ -7,7 +7,7 @@ import 'package:fund_divider/pages/wallet_page.dart';
 import 'package:salomon_bottom_bar/salomon_bottom_bar.dart';
 
 class BottomBar extends StatefulWidget {
-  const BottomBar({Key? key}) : super(key: key);
+  const BottomBar({super.key});
 
   @override
   State<BottomBar> createState() => _BottomBarState();

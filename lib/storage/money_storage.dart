@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:fund_divider/model/error_handler.dart';
 import 'package:fund_divider/model/hive.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 

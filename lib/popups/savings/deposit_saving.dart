@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 class DepositSaving extends StatefulWidget {
   final int savingId;
 
-  const DepositSaving({Key? key, required this.savingId}) : super(key: key);
+  const DepositSaving({super.key, required this.savingId});
 
   @override
   State<DepositSaving> createState() => _DepositSavingState();

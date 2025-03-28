@@ -3,6 +3,8 @@ import 'package:fund_divider/storage/money_storage.dart';
 import 'package:intl/intl.dart';
 
 class AddFundDialog extends StatefulWidget {
+  const AddFundDialog({super.key});
+
   @override
   State<AddFundDialog> createState() => _AddFundDialogState();
 }

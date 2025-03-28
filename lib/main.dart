@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:fund_divider/bottom_bar/bottom_bar.dart';
-import 'package:fund_divider/popups/error/error.dart';
 import 'package:fund_divider/model/error_handler.dart';
 import 'package:fund_divider/model/hive.dart';
 import 'package:fund_divider/storage/money_storage.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'splash_screen.dart'; // Import SplashScreen
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,25 +31,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: Stack(
-        children: [
-          const BottomBar(),
-          ValueListenableBuilder<String?>(
-            valueListenable: ErrorHandler.errorMessage,
-            builder: (context, error, child) {
-              if (error != null) {
-                Future.delayed(Duration.zero, () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => ErrorPopup(errorMessage: error),
-                  );
-                });
-              }
-              return const SizedBox.shrink(); // Returns an empty widget when there's no error
-            },
-          ),
-        ],
-      ),
+      home: const SplashScreen(), // Use SplashScreen instead of BottomBar()
     );
   }
 }

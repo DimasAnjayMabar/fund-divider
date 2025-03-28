@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class ExpensesPage extends StatefulWidget {
-  const ExpensesPage({Key? key}) : super(key: key);
+  const ExpensesPage({super.key});
 
   @override
   State<ExpensesPage> createState() => _ExpensesPageState();

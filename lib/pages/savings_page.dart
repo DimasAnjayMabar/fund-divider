@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class SavingsPage extends StatefulWidget {
-  const SavingsPage({Key? key}) : super(key: key);
+  const SavingsPage({super.key});
 
   @override
   State<SavingsPage> createState() => _SavingsPageState();

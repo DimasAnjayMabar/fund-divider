@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class WalletPage extends StatefulWidget {
-  const WalletPage({Key? key}) : super(key: key);
+  const WalletPage({super.key});
 
   @override
   State<WalletPage> createState() => _WalletPageState();

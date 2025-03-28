@@ -3,6 +3,8 @@ import 'package:fund_divider/storage/money_storage.dart';
 import 'package:intl/intl.dart'; // Import for formatting
 
 class AddSavings extends StatefulWidget {
+  const AddSavings({super.key});
+
   @override
   State<AddSavings> createState() => _AddSavingsState();
 }

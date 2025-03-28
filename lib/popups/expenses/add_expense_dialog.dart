@@ -4,6 +4,8 @@ import 'package:fund_divider/storage/money_storage.dart';
 import 'package:intl/intl.dart'; // Import for formatting
 
 class AddMainExpenseDialog extends StatefulWidget {
+  const AddMainExpenseDialog({super.key});
+
   @override
   State<AddMainExpenseDialog> createState() => _AddMainExpenseDialogState();
 }
