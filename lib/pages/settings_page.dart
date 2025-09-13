@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/popups/confirmation/confirmation_popup.dart';
+import 'package:fund_divider/popups/username/username_popup.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -45,8 +46,8 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () => showDialog(
                 context: context,
                 builder: (context) => ConfirmationPopup(
-                  errorMessage: "Reset Savings", 
-                  title: "Are you sure you want to reset all savings?", 
+                  title: "Reset Savings", 
+                  errorMessage: "Are you sure you want to reset all savings?", 
                   onConfirm: () async {
                     await WalletService.resetSavings();
                   }
@@ -68,6 +69,30 @@ class _SettingsPageState extends State<SettingsPage> {
                   },
                 ),
               )
+            ),
+            _buildActionCard(
+              title: "Change Username",
+              description: "Change username at wallet page",
+              icon: Icons.person,
+              color: Colors.blue,
+              onTap: () async {
+                final shouldProceed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => ConfirmationPopup(
+                    title: "Change Username",
+                    errorMessage: "Are you sure you want to change your username?",
+                    onConfirm: () {}, // Kosongkan karena kita handle di return value
+                  ),
+                );
+                
+                if (shouldProceed == true && mounted) {
+                  // Show username dialog
+                  final result = await showDialog<String>(
+                    context: context,
+                    builder: (context) => const SaveUsername(isEditMode: true),
+                  );
+                }
+              }
             ),
           ],
         ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/bottom_bar/bottom_bar.dart';
+import 'package:fund_divider/popups/username/username_popup.dart';
+import 'package:fund_divider/storage/money_storage.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -16,33 +18,67 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _loadData() async {
-    await Future.delayed(Duration(seconds: 2)); // Simulate loading time
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const BottomBar()), // Navigate to main screen
-    );
+    // Simulate loading time
+    await Future.delayed(const Duration(seconds: 2));
+    
+    // Check if username exists
+    final hasUsername = WalletService.hasUsername();
+    
+    if (mounted) {
+      if (hasUsername) {
+        // Jika username sudah ada, langsung ke BottomBar
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const BottomBar()),
+        );
+      } else {
+        // Jika username belum ada, tampilkan popup
+        _showUsernamePopup();
+      }
+    }
+  }
+
+  Future<void> _showUsernamePopup() async {
+    // Tunggu sebentar agar splash screen terlihat
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    if (mounted) {
+      final result = await showDialog<String>(
+        context: context,
+        barrierDismissible: false, // User harus mengisi username
+        builder: (context) => const SaveUsername(),
+      );
+      
+      // Setelah username disimpan, lanjut ke BottomBar
+      if (mounted && result != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const BottomBar()),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF262626), // Set background color
+      backgroundColor: const Color(0xFF262626),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(100), // Make it rounded
+              borderRadius: BorderRadius.circular(100),
               child: Image.asset(
-                "assets/images/download.png",
+                "assets/images/PIGGI.png",
                 width: 200, 
                 height: 200,
-                fit: BoxFit.cover, // Ensures image fills the shape
+                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(height: 20),
             const Text(
-              "Fund Divider",
+              "Manage your financial in your pocket",
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -50,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             const SizedBox(height: 30),
-            const CircularProgressIndicator(), // Show loading indicator
+            const CircularProgressIndicator(),
           ],
         ),
       ),

@@ -25,13 +25,13 @@ class _WalletPageState extends State<WalletPage> {
     greeting = getGreeting();
   }
 
-  String getGreeting(){
+  String getGreeting() {
     int hour = DateTime.now().hour;
-    if(hour >= 5 && hour < 12){
+    if (hour >= 5 && hour < 12) {
       return "Morning";
-    } else if (hour >= 12 && hour < 17){
+    } else if (hour >= 12 && hour < 17) {
       return "Afternoon";
-    } else if (hour >= 17 && hour < 21){
+    } else if (hour >= 17 && hour < 21) {
       return "Evening";
     } else {
       return "Night";
@@ -39,7 +39,9 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   String formatRupiah(double value) {
-    return NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0).format(value);
+    return NumberFormat.currency(
+            locale: 'id_ID', symbol: 'Rp', decimalDigits: 0)
+        .format(value);
   }
 
   String formatPercentage(double value) {
@@ -66,9 +68,15 @@ class _WalletPageState extends State<WalletPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 40),
-            Text(
-              "$greeting, Greg!",
-              style: TextStyle(color: Colors.white, fontSize: 18),
+            ValueListenableBuilder(
+              valueListenable: WalletService.listenToUsername(),
+              builder: (context, Box<Username> box, _) {
+                String name = box.isNotEmpty ? box.getAt(0)?.name ?? '' : '';
+                return Text(
+                  "$greeting, $name",
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                );
+              },
             ),
             const SizedBox(height: 20),
 
@@ -149,7 +157,8 @@ class _WalletPageState extends State<WalletPage> {
                   ValueListenableBuilder(
                     valueListenable: WalletService.listenToExpenses(),
                     builder: (context, Box<Expenses> box, _) {
-                      List<Expenses> expensesList = box.values.toList().reversed.toList();
+                      List<Expenses> expensesList =
+                          box.values.toList().reversed.toList();
 
                       if (expensesList.isEmpty) {
                         return const Text(
@@ -168,7 +177,8 @@ class _WalletPageState extends State<WalletPage> {
                             padding: EdgeInsets.zero,
                             itemCount: expensesList.length,
                             itemBuilder: (context, index) {
-                              final expense = expensesList[index]; // Change variable name to `expense`
+                              final expense = expensesList[
+                                  index]; // Change variable name to `expense`
 
                               // Extract data from the Expenses object
                               String title = expense.description;
@@ -179,24 +189,28 @@ class _WalletPageState extends State<WalletPage> {
                                 direction: DismissDirection.endToStart,
                                 background: Container(
                                   alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20),
                                   color: Colors.red,
-                                  child: const Icon(Icons.delete, color: Colors.white),
+                                  child: const Icon(Icons.delete,
+                                      color: Colors.white),
                                 ),
                                 confirmDismiss: (direction) async {
-                                  if(direction == DismissDirection.endToStart){
+                                  if (direction ==
+                                      DismissDirection.endToStart) {
                                     showDialog(
                                       context: context,
                                       builder: (context) => ConfirmationPopup(
                                         title: "Delete Expense",
-                                        errorMessage: "Are you sure you want to delete this expense? (this amount of expense will going back to the wallet)",
+                                        errorMessage:
+                                            "Are you sure you want to delete this expense? (this amount of expense will going back to the wallet)",
                                         onConfirm: () {
                                           WalletService.deleteExpense(expense);
                                         },
                                       ),
                                     );
                                     return false;
-                                  }else{
+                                  } else {
                                     return false;
                                   }
                                 },
@@ -221,7 +235,8 @@ class _WalletPageState extends State<WalletPage> {
                   ValueListenableBuilder(
                     valueListenable: WalletService.listenToSavings(),
                     builder: (context, Box<Savings> box, _) {
-                      List<Savings> savingsList = box.values.toList().reversed.toList();
+                      List<Savings> savingsList =
+                          box.values.toList().reversed.toList();
 
                       if (savingsList.isEmpty) {
                         return const Text(
@@ -250,28 +265,37 @@ class _WalletPageState extends State<WalletPage> {
                                 direction: DismissDirection.endToStart,
                                 background: Container(
                                   alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20),
                                   color: Colors.red,
-                                  child: const Icon(Icons.delete, color: Colors.white),
+                                  child: const Icon(Icons.delete,
+                                      color: Colors.white),
                                 ),
                                 confirmDismiss: (direction) async {
-                                  if(direction == DismissDirection.endToStart){
+                                  if (direction ==
+                                      DismissDirection.endToStart) {
                                     showDialog(
                                       context: context,
                                       builder: (context) => ConfirmationPopup(
                                         title: "Delete Saving",
-                                        errorMessage: "Are you sure you want to delete this saving? (all the money deposited is going back to the wallet)",
+                                        errorMessage:
+                                            "Are you sure you want to delete this saving? (all the money deposited is going back to the wallet)",
                                         onConfirm: () {
-                                          WalletService.deleteSaving(saving); // Function to be executed
+                                          WalletService.deleteSaving(
+                                              saving); // Function to be executed
                                         },
                                       ),
                                     );
                                     return false;
-                                  }else{
+                                  } else {
                                     return false;
                                   }
                                 },
-                                child: _buildTransactionItem(saving.id.toString(), title, type, formatPercentage(percentage)),
+                                child: _buildTransactionItem(
+                                    saving.id.toString(),
+                                    title,
+                                    type,
+                                    formatPercentage(percentage)),
                               );
                             },
                           ),
@@ -288,17 +312,23 @@ class _WalletPageState extends State<WalletPage> {
             ValueListenableBuilder(
               valueListenable: WalletService.listenToExpenses(),
               builder: (context, Box<Expenses> box, _) {
-
-                double totalMonthly = WalletService.getTotalExpenseForPeriod(const Duration(days: 30));
-                double totalWeekly = WalletService.getTotalExpenseForPeriod(const Duration(days: 7));
-                double totalDaily = WalletService.getTotalExpenseForPeriod(const Duration(days: 1));
+                double totalMonthly = WalletService.getTotalExpenseForPeriod(
+                    const Duration(days: 30));
+                double totalWeekly = WalletService.getTotalExpenseForPeriod(
+                    const Duration(days: 7));
+                double totalDaily = WalletService.getTotalExpenseForPeriod(
+                    const Duration(days: 1));
 
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildSummaryCard("Monthly", formatRupiah(totalMonthly), "Spent this month"),
-                    _buildSummaryCard("Weekly", formatRupiah(totalWeekly), "Spent this week", isHighlighted: true),
-                    _buildSummaryCard("Daily", formatRupiah(totalDaily), "Spent this day"),
+                    _buildSummaryCard("Monthly", formatRupiah(totalMonthly),
+                        "Spent this month"),
+                    _buildSummaryCard(
+                        "Weekly", formatRupiah(totalWeekly), "Spent this week",
+                        isHighlighted: true),
+                    _buildSummaryCard(
+                        "Daily", formatRupiah(totalDaily), "Spent this day"),
                   ],
                 );
               },
@@ -309,7 +339,8 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  Widget _buildTransactionItem(String id, String title, String type, String amount) {
+  Widget _buildTransactionItem(
+      String id, String title, String type, String amount) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -318,8 +349,10 @@ class _WalletPageState extends State<WalletPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
-              Text(type, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+              Text(title,
+                  style: const TextStyle(color: Colors.white, fontSize: 14)),
+              Text(type,
+                  style: TextStyle(color: Colors.grey[400], fontSize: 12)),
             ],
           ),
           Text(amount,
@@ -332,7 +365,8 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  Widget _buildSummaryCard(String title, String amount, String subtitle, {bool isHighlighted = false}) {
+  Widget _buildSummaryCard(String title, String amount, String subtitle,
+      {bool isHighlighted = false}) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),

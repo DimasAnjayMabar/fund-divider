@@ -32,14 +32,13 @@ class Savings {
   @HiveField(6)
   DateTime date_added;
 
-  Savings({
-    required this.id,
-    required this.description,
-    required this.percentage,
-    required this.amount,
-    required this.target,
-    required this.date_added
-  });
+  Savings(
+      {required this.id,
+      required this.description,
+      required this.percentage,
+      required this.amount,
+      required this.target,
+      required this.date_added});
 }
 
 @HiveType(typeId: 2)
@@ -56,7 +55,11 @@ class Expenses {
   @HiveField(3)
   DateTime date_added;
 
-  Expenses({required this.id, required this.description, required this.amount, required this.date_added});
+  Expenses(
+      {required this.id,
+      required this.description,
+      required this.amount,
+      required this.date_added});
 }
 
 @HiveType(typeId: 3)
@@ -65,7 +68,7 @@ class History {
   int id;
 
   @HiveField(1)
-  Savings? saving;  // Reference to a Savings object
+  Savings? saving; // Reference to a Savings object
 
   @HiveField(2)
   Expenses? expense; // Reference to an Expenses object
@@ -79,4 +82,12 @@ class History {
     this.expense,
     required this.dateAdded,
   });
+}
+
+@HiveType(typeId: 4)
+class Username {
+  @HiveField(0)
+  String name;
+
+  Username({required this.name});
 }
