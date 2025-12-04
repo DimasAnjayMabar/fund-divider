@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/storage/money_storage.dart';
-import 'package:intl/intl.dart'; // Import for formatting
+import 'package:intl/intl.dart';
 
 class AddSavings extends StatefulWidget {
   const AddSavings({super.key});
@@ -12,9 +12,9 @@ class AddSavings extends StatefulWidget {
 class _AddSavingsState extends State<AddSavings> {
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController targetController = TextEditingController();
+  final TextEditingController percentageController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
-  final TextEditingController percentageController = TextEditingController();
 
   @override
   void initState() {
@@ -26,219 +26,516 @@ class _AddSavingsState extends State<AddSavings> {
   void dispose() {
     targetController.removeListener(_formatInput);
     targetController.dispose();
-    // percentageController.removeListener(_formatPercentage);
     percentageController.dispose();
     descriptionController.dispose();
     super.dispose();
   }
 
   void _formatInput() {
-    String text =
-        targetController.text.replaceAll('.', ''); // Remove existing dots
+    String text = targetController.text.replaceAll('.', '');
     if (text.isNotEmpty) {
-      double value = double.parse(text);
-      targetController.value = TextEditingValue(
-        text: currencyFormatter.format(value), // Format with thousand separator
-        selection:
-            TextSelection.collapsed(offset: targetController.text.length),
-      );
+      try {
+        double value = double.parse(text);
+        targetController.value = TextEditingValue(
+          text: currencyFormatter.format(value),
+          selection: TextSelection.collapsed(offset: targetController.text.length),
+        );
+      } catch (e) {
+        // Handle parsing error
+      }
     }
   }
 
-  // // Format percentage input (e.g., "25%" but store as 0.25)
-  // void _formatPercentage() {
-  //   String text = percentageController.text.replaceAll('%', '').trim();
-  //   if (text.isNotEmpty) {
-  //     double value = double.tryParse(text) ?? 0;
-  //     percentageController.text = "$value%";
-  //     percentageController.selection = TextSelection.collapsed(offset: percentageController.text.length);
-  //   }
-  // }
-
-  // void _onPercentageChanged(String value){
-  //   String clean = value.replaceAll('%', '').trim();
-  //   if(clean.isNotEmpty && !value.endsWith('%')){
-  //     double num = double.tryParse(clean) ?? 0;
-  //     String newText = "$num%";
-  //     percentageController.value = TextEditingValue(
-  //       text: newText,
-  //       selection: TextSelection.collapsed(offset: newText.length - 1)
-  //     );
-  //   }
-  // }
-
-  // to modify here : submit uses addSaving function from wallet service
   void _submit() async {
-    if (!_formKey.currentState!.validate()) return; // Ensure form is valid
+    if (_formKey.currentState!.validate()) {
+      String description = descriptionController.text;
+      String percentageText = percentageController.text.trim();
+      String targetText = targetController.text.replaceAll('.', '');
+      
+      double? percentage = double.tryParse(percentageText);
+      double? target = double.tryParse(targetText);
 
-    String target = targetController.text.replaceAll('.', ''); // Remove formatting
-    String percentageText = percentageController.text.trim();
-    double? percentage = double.tryParse(percentageText);
+      if (percentage == null) {
+        _showErrorSnackbar("Invalid percentage value");
+        return;
+      }
 
-    if (percentage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Invalid percentage value")),
-      );
-      return;
+      if (target == null) {
+        _showErrorSnackbar("Invalid target amount");
+        return;
+      }
+
+      percentage /= 100; // Convert to decimal
+      
+      if (target <= 0) {
+        _showErrorSnackbar("Target must be greater than 0");
+        return;
+      }
+      
+      try {
+        await WalletService.addSaving(description, percentage, 0, target);
+        Navigator.of(context).pop();
+      } catch (e) {
+        _showErrorSnackbar("Failed to create savings: $e");
+      }
     }
+  }
 
-    percentage /= 100; // Convert to decimal
-    String description = descriptionController.text;
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
-    if (target.isNotEmpty && percentage > 0.0 && description.isNotEmpty) {
-      await WalletService.addSaving(description, percentage, 0, double.tryParse(target)!);
-      Navigator.of(context).pop(); // Close dialog
-    }else{
-      await WalletService.addSaving(description, percentage, 0, 0);
-      Navigator.of(context).pop(); // Close dialog
-    }
+  void _setQuickAmount(String amount) {
+    String rawAmount = amount.replaceAll('.', '');
+    targetController.text = NumberFormat.decimalPattern('id_ID').format(
+      double.parse(rawAmount),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.black,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Colors.white, width: 1)),
-      title: const Text(
-        "Add Savings",
-        style: TextStyle(
-          color: Colors.yellow,
-          fontWeight: FontWeight.bold,
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.all(20),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
         ),
-      ),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Title Field
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Description",
-                style: TextStyle(color: Colors.yellow),
-              ),
-            ),
-            TextFormField(
-              controller: descriptionController,
-              style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration(),
-              validator: (value) => value == null || value.isEmpty
-                  ? "Description is required"
-                  : null,
-            ),
-            const SizedBox(height: 10),
-
-            // to modify here : make a percentage converter from double to percent but still saved as double inside hive
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Percentage",
-                style: TextStyle(color: Colors.yellow),
-              ),
-            ),
-            TextFormField(
-              controller: percentageController,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.grey[900],
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.grey),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.yellow),
-                ),
-                suffixText: '%', 
-                suffixStyle: const TextStyle(color: Colors.white),
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) return "Percentage is required";
-                double? parsedValue = double.tryParse(value);
-                if (parsedValue == null || parsedValue <= 0 || parsedValue > 100) {
-                  return "Enter a valid percentage (1-100)";
-                }
-                return null;
-              },
-            ),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Target",
-                style: TextStyle(color: Colors.yellow),
-              ),
-            ),
-            TextFormField(
-              controller: targetController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Colors.grey[900],
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.grey),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.yellow),
-                ),
-              ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 30,
+              spreadRadius: 5,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
-      ),
-      actions: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Cancel Button
-            _actionButton("Cancel", Colors.yellow, () {
-              Navigator.of(context).pop();
-            }),
-            const SizedBox(width: 10),
-            _actionButton("Save", Colors.yellow, _submit),
-          ],
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Create Savings",
+                        style: TextStyle(
+                          color: Color(0xff6F41F2),
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: Colors.grey[600],
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  const Text(
+                    "Set up your savings goal",
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: 14,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Description Input
+                  const Text(
+                    "Description",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xff6F41F2).withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: TextFormField(
+                      controller: descriptionController,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        border: InputBorder.none,
+                        hintText: "e.g., Vacation Fund, Emergency Fund",
+                        hintStyle: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 16,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return "Please enter a description";
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Percentage Input
+                  const Text(
+                    "Savings Percentage",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xff6F41F2).withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 60,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff6F41F2).withOpacity(0.1),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(12),
+                              bottomLeft: Radius.circular(12),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              "%",
+                              style: TextStyle(
+                                color: Color(0xff6F41F2),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextFormField(
+                            controller: percentageController,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: const InputDecoration(
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              border: InputBorder.none,
+                              hintText: "10",
+                              hintStyle: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 18,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return "Please enter a percentage";
+                              }
+                              try {
+                                double percentage = double.parse(value);
+                                if (percentage <= 0) {
+                                  return "Percentage must be greater than 0";
+                                }
+                                if (percentage > 100) {
+                                  return "Percentage cannot exceed 100%";
+                                }
+                              } catch (e) {
+                                return "Please enter a valid number";
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  Text(
+                    "This percentage will be automatically saved from your income",
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Target Amount Input
+                  const Text(
+                    "Target Amount",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xff6F41F2).withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 60,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff6F41F2).withOpacity(0.1),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(12),
+                              bottomLeft: Radius.circular(12),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              "Rp",
+                              style: TextStyle(
+                                color: Color(0xff6F41F2),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextFormField(
+                            controller: targetController,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: const InputDecoration(
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              border: InputBorder.none,
+                              hintText: "1.000.000",
+                              hintStyle: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 18,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return "Please enter a target amount";
+                              }
+                              try {
+                                String rawText = value.replaceAll('.', '');
+                                double amount = double.parse(rawText);
+                                if (amount <= 0) {
+                                  return "Target must be greater than 0";
+                                }
+                              } catch (e) {
+                                return "Please enter a valid number";
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Quick Amount Buttons for Target
+                  const Text(
+                    "Quick Target Amount",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickAmountButton("500.000"),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickAmountButton("1.000.000"),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickAmountButton("5.000.000"),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 10),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickAmountButton("10.000.000"),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickAmountButton("25.000.000"),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickAmountButton("50.000.000"),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Create Button
+                  Material(
+                    elevation: 5,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xff6F41F2),
+                            Color(0xff5A32D6),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xff6F41F2).withOpacity(0.4),
+                            blurRadius: 15,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.savings_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              "Create Savings",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      ],
-    );
-  }
-
-  /// 🔹 Input Decoration for Text Fields
-  InputDecoration _inputDecoration() {
-    return InputDecoration(
-      filled: true,
-      fillColor: Colors.grey[900],
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.grey),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.yellow),
       ),
     );
   }
 
-  /// 🔹 Custom Action Button
-  Widget _actionButton(String text, Color color, VoidCallback onPressed) {
-    return TextButton(
-      style: TextButton.styleFrom(
-        backgroundColor: color,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+  Widget _buildQuickAmountButton(String amount) {
+    return OutlinedButton(
+      onPressed: () => _setQuickAmount(amount),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        side: BorderSide(
+          color: const Color(0xff6F41F2).withOpacity(0.3),
+          width: 1.5,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
+        backgroundColor: Colors.white,
       ),
-      onPressed: onPressed,
       child: Text(
-        text,
-        style: const TextStyle(color: Colors.black),
+        "Rp$amount",
+        style: const TextStyle(
+          color: Color(0xff6F41F2),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
