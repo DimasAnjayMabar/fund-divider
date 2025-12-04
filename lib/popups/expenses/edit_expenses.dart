@@ -5,7 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 
 class EditExpenses extends StatefulWidget {
-  final int expenseId; // Accept expense ID
+  final int expenseId;
 
   const EditExpenses({super.key, required this.expenseId});
 
@@ -18,6 +18,8 @@ class _EditExpensesState extends State<EditExpenses> {
   final TextEditingController _controller = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
+  late Expenses _originalExpense;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -26,145 +28,506 @@ class _EditExpensesState extends State<EditExpenses> {
     _controller.addListener(_formatInput);
   }
 
+  @override
+  void dispose() {
+    _controller.removeListener(_formatInput);
+    _controller.dispose();
+    titleController.dispose();
+    super.dispose();
+  }
+
   void _loadExpense() {
     var expenseBox = Hive.box<Expenses>('expensesBox');
     var expense = expenseBox.get(widget.expenseId);
 
     if (expense != null) {
+      _originalExpense = expense;
       titleController.text = expense.description;
       _controller.text = currencyFormatter.format(expense.amount);
     }
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   void _formatInput() {
-    String text = _controller.text.replaceAll('.', ''); // Remove existing dots
+    String text = _controller.text.replaceAll('.', '');
     if (text.isNotEmpty) {
-      double value = double.parse(text);
-      _controller.value = TextEditingValue(
-        text: currencyFormatter.format(value), // Format with thousand separator
-        selection: TextSelection.collapsed(offset: _controller.text.length),
-      );
+      try {
+        double value = double.parse(text);
+        _controller.value = TextEditingValue(
+          text: currencyFormatter.format(value),
+          selection: TextSelection.collapsed(offset: _controller.text.length),
+        );
+      } catch (e) {
+        // Handle parsing error
+      }
     }
   }
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
       String rawText = _controller.text.replaceAll('.', '');
-      double newAmount = double.parse(rawText);
-      String newDescription = titleController.text;
+      try {
+        double newAmount = double.parse(rawText);
+        String newDescription = titleController.text;
 
-      var expenseBox = Hive.box<Expenses>('expensesBox');
-      var expense = expenseBox.get(widget.expenseId);
+        if (newAmount <= 0) {
+          _showErrorSnackbar('Please enter a valid amount');
+          return;
+        }
 
-      if (expense != null) {
-        double oldAmount = expense.amount;
-        double difference = newAmount - oldAmount;
+        double difference = newAmount - _originalExpense.amount;
+        
+        // Check if balance is sufficient for the difference
+        if (difference > 0 && difference > WalletService.getBalance()) {
+          _showErrorSnackbar('Insufficient balance for this update');
+          return;
+        }
 
+        var expenseBox = Hive.box<Expenses>('expensesBox');
+        
         // Update expense fields
-        expense.description = newDescription;
-        expense.amount = newAmount;
-        await expenseBox.put(widget.expenseId, expense);
+        _originalExpense.description = newDescription;
+        _originalExpense.amount = newAmount;
+        await expenseBox.put(widget.expenseId, _originalExpense);
 
-        // Adjust the balance
+        // Adjust the balance (negative difference reduces balance)
         WalletService.updateBalance(-difference);
-      }
 
-      Navigator.of(context).pop();
+        Navigator.of(context).pop();
+        
+      } catch (e) {
+        _showErrorSnackbar('Please enter a valid number');
+      }
     }
   }
-  
+
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _setQuickAmount(String amount) {
+    String rawAmount = amount.replaceAll('.', '');
+    _controller.text = NumberFormat.decimalPattern('id_ID').format(
+      double.parse(rawAmount),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text(
-        "Edit Expense", 
-        style: TextStyle(
-          color: Colors.yellow,
-          fontWeight: FontWeight.bold,
+    if (_isLoading) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const CircularProgressIndicator(
+            color: Color(0xff6F41F2),
+          ),
         ),
-      ),
-      backgroundColor: Colors.black,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Colors.white, width: 1)
-      ),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Description", 
-                style: TextStyle(color: Colors.yellow),
-              ),
-            ),
-            TextFormField(
-              controller: titleController,
-              style: const TextStyle(color: Colors.white),
-              decoration: _inputDecoration(),
-              validator: (value) => value == null || value.isEmpty ? "Description is required" : null,
-            ),
-            const SizedBox(height: 10,),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Amount", 
-                style: TextStyle(color: Colors.yellow),
-              ),
-            ),
-            TextFormField(
-              controller: _controller,
-              style: const TextStyle(color: Colors.white),
-              keyboardType: TextInputType.number,
-              decoration: _inputDecoration(),
-              validator: (value) => value == null || value.isEmpty ? "Description is required" : null,
+      );
+    }
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.all(20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 30,
+              spreadRadius: 5,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Edit Expense",
+                    style: TextStyle(
+                      color: Color(0xff6F41F2),
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: Colors.grey[600],
+                      size: 24,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 8),
+              
+              const Text(
+                "Edit expense details",
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontSize: 14,
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Description Input
+              const Text(
+                "Description",
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              
+              const SizedBox(height: 8),
+              
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xff6F41F2).withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: TextFormField(
+                  controller: titleController,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    border: InputBorder.none,
+                    hintText: "Enter description",
+                    hintStyle: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 16,
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return "Please enter a description";
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Amount Input
+              const Text(
+                "Amount",
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              
+              const SizedBox(height: 8),
+              
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xff6F41F2).withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 60,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xff6F41F2).withOpacity(0.1),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(12),
+                          bottomLeft: Radius.circular(12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          "Rp",
+                          style: TextStyle(
+                            color: Color(0xff6F41F2),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _controller,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          border: InputBorder.none,
+                          hintText: "0",
+                          hintStyle: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 18,
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return "Please enter an amount";
+                          }
+                          try {
+                            String rawText = value.replaceAll('.', '');
+                            double amount = double.parse(rawText);
+                            if (amount <= 0) {
+                              return "Amount must be greater than 0";
+                            }
+                            double difference = amount - _originalExpense.amount;
+                            if (difference > 0 && difference > WalletService.getBalance()) {
+                              return "Insufficient balance for this update";
+                            }
+                          } catch (e) {
+                            return "Please enter a valid number";
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 8),
+              
+              // Current Balance Display
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Current Balance:",
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    "Rp ${currencyFormatter.format(WalletService.getBalance())}",
+                    style: const TextStyle(
+                      color: Color(0xff6F41F2),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Original Amount Info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xff6F41F2).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Original Amount:",
+                      style: TextStyle(
+                        color: Colors.black54,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      "Rp ${currencyFormatter.format(_originalExpense.amount)}",
+                      style: const TextStyle(
+                        color: Color(0xff6F41F2),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Quick Amount Buttons
+              const Text(
+                "Quick Amount",
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickAmountButton("10.000"),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildQuickAmountButton("50.000"),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildQuickAmountButton("100.000"),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 10),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickAmountButton("200.000"),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildQuickAmountButton("500.000"),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildQuickAmountButton("1.000.000"),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // Save Button
+              Material(
+                elevation: 5,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xff6F41F2),
+                        Color(0xff5A32D6),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xff6F41F2).withOpacity(0.4),
+                        blurRadius: 15,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.save_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          "Save Changes",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      actions: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _actionButton("Cancel", Colors.yellow, () {Navigator.of(context).pop();}),
-            const SizedBox(width: 10,),
-            _actionButton("Save", Colors.yellow, _submit)
-          ],
-        )
-      ],
     );
   }
 
-  InputDecoration _inputDecoration() {
-    return InputDecoration(
-      filled: true,
-      fillColor: Colors.grey[900],
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.grey),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.yellow),
-      ),
-    );
-  }
-
-  Widget _actionButton(String text, Color color, VoidCallback onPressed) {
-    return TextButton(
-      style: TextButton.styleFrom(
-        backgroundColor: color,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+  Widget _buildQuickAmountButton(String amount) {
+    return OutlinedButton(
+      onPressed: () => _setQuickAmount(amount),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        side: BorderSide(
+          color: const Color(0xff6F41F2).withOpacity(0.3),
+          width: 1.5,
+        ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
+        backgroundColor: Colors.white,
       ),
-      onPressed: onPressed,
       child: Text(
-        text,
-        style: const TextStyle(color: Colors.black),
+        "Rp$amount",
+        style: const TextStyle(
+          color: Color(0xff6F41F2),
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }

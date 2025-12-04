@@ -3,7 +3,7 @@ import 'package:fund_divider/model/error_handler.dart';
 import 'package:fund_divider/model/hive.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'splash_screen.dart'; // Import SplashScreen
+import 'splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -17,6 +17,8 @@ class _WalletPageState extends State<WalletPage> {
   double balance = 0.0;
   String greeting = "";
 
+  bool isHidden = false;
+
   @override
   void initState() {
     super.initState();
@@ -28,364 +30,555 @@ class _WalletPageState extends State<WalletPage> {
   String getGreeting() {
     int hour = DateTime.now().hour;
     if (hour >= 5 && hour < 12) {
-      return "Morning";
+      return "Good Morning";
     } else if (hour >= 12 && hour < 17) {
-      return "Afternoon";
+      return "Good Afternoon";
     } else if (hour >= 17 && hour < 21) {
-      return "Evening";
+      return "Good Evening";
     } else {
-      return "Night";
+      return "Good Night";
     }
   }
 
   String formatRupiah(double value) {
     return NumberFormat.currency(
-            locale: 'id_ID', symbol: 'Rp', decimalDigits: 0)
+            locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0)
         .format(value);
-  }
-
-  String formatPercentage(double value) {
-    return "${(value * 100).toStringAsFixed(0)}%";
-  }
-
-  Color getPercentageColor(double value) {
-    if (value < 0.5) {
-      return Colors.green;
-    } else if (value == 0.5) {
-      return Colors.yellow;
-    } else {
-      return Colors.red;
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 40),
-            ValueListenableBuilder(
-              valueListenable: WalletService.listenToUsername(),
-              builder: (context, Box<Username> box, _) {
-                String name = box.isNotEmpty ? box.getAt(0)?.name ?? '' : '';
-                return Text(
-                  "$greeting, $name",
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
+    return Scaffold(
+      backgroundColor: const Color(0xFFD9D9D9), // Background utama
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              _buildHeader(),
 
-            // Wallet Container
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[900],
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.yellow),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Active Balance",
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                  const SizedBox(height: 8),
-                  ValueListenableBuilder(
-                    valueListenable: WalletService.listenToBalance(),
-                    builder: (context, Box<Wallet> box, _) {
-                      double balance = box.get('main')?.balance ?? 0.0;
-                      return Text(
-                        formatRupiah(balance),
-                        style: const TextStyle(
-                          color: Colors.yellow,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.yellow,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AddFundDialog();
-                        },
-                      );
-                    },
-                    child: const Text("Add More Fund"),
-                  ),
-                ],
-              ),
-            ),
+              const SizedBox(height: 20),
+              _buildWalletCard(),
 
-            // History Section
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[850],
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "History",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    "Expense",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  ValueListenableBuilder(
-                    valueListenable: WalletService.listenToExpenses(),
-                    builder: (context, Box<Expenses> box, _) {
-                      List<Expenses> expensesList =
-                          box.values.toList().reversed.toList();
+              const SizedBox(height: 25),
+              _buildTopUpButton(),
 
-                      if (expensesList.isEmpty) {
-                        return const Text(
-                          "No expense history yet.",
-                          style: TextStyle(color: Colors.white),
-                        );
-                      }
+              const SizedBox(height: 30),
+              _buildHistorySection(),
 
-                      return SizedBox(
-                        height: 250,
-                        child: Scrollbar(
-                          thickness: 3,
-                          radius: const Radius.circular(8),
-                          child: ListView.builder(
-                            physics: const BouncingScrollPhysics(),
-                            padding: EdgeInsets.zero,
-                            itemCount: expensesList.length,
-                            itemBuilder: (context, index) {
-                              final expense = expensesList[
-                                  index]; // Change variable name to `expense`
-
-                              // Extract data from the Expenses object
-                              String title = expense.description;
-                              double amount = expense.amount;
-
-                              return Dismissible(
-                                key: Key(expense.id.toString()),
-                                direction: DismissDirection.endToStart,
-                                background: Container(
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20),
-                                  color: Colors.red,
-                                  child: const Icon(Icons.delete,
-                                      color: Colors.white),
-                                ),
-                                confirmDismiss: (direction) async {
-                                  if (direction ==
-                                      DismissDirection.endToStart) {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => ConfirmationPopup(
-                                        title: "Delete Expense",
-                                        errorMessage:
-                                            "Are you sure you want to delete this expense? (this amount of expense will going back to the wallet)",
-                                        onConfirm: () {
-                                          WalletService.deleteExpense(expense);
-                                        },
-                                      ),
-                                    );
-                                    return false;
-                                  } else {
-                                    return false;
-                                  }
-                                },
-                                child: _buildTransactionItem(
-                                  expense.id.toString(),
-                                  title,
-                                  "Expense", // Since it's always an expense
-                                  formatRupiah(amount),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    "Savings",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  ValueListenableBuilder(
-                    valueListenable: WalletService.listenToSavings(),
-                    builder: (context, Box<Savings> box, _) {
-                      List<Savings> savingsList =
-                          box.values.toList().reversed.toList();
-
-                      if (savingsList.isEmpty) {
-                        return const Text(
-                          "No savings history yet.",
-                          style: TextStyle(color: Colors.white),
-                        );
-                      }
-
-                      return SizedBox(
-                        height: 250,
-                        child: Scrollbar(
-                          thickness: 3,
-                          radius: const Radius.circular(8),
-                          child: ListView.builder(
-                            physics: const BouncingScrollPhysics(),
-                            padding: EdgeInsets.zero,
-                            itemCount: savingsList.length,
-                            itemBuilder: (context, index) {
-                              final saving = savingsList[index];
-                              String title = saving.description;
-                              String type = "Saving";
-                              double percentage = saving.percentage;
-
-                              return Dismissible(
-                                key: Key(saving.id.toString()),
-                                direction: DismissDirection.endToStart,
-                                background: Container(
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20),
-                                  color: Colors.red,
-                                  child: const Icon(Icons.delete,
-                                      color: Colors.white),
-                                ),
-                                confirmDismiss: (direction) async {
-                                  if (direction ==
-                                      DismissDirection.endToStart) {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => ConfirmationPopup(
-                                        title: "Delete Saving",
-                                        errorMessage:
-                                            "Are you sure you want to delete this saving? (all the money deposited is going back to the wallet)",
-                                        onConfirm: () {
-                                          WalletService.deleteSaving(
-                                              saving); // Function to be executed
-                                        },
-                                      ),
-                                    );
-                                    return false;
-                                  } else {
-                                    return false;
-                                  }
-                                },
-                                child: _buildTransactionItem(
-                                    saving.id.toString(),
-                                    title,
-                                    type,
-                                    formatPercentage(percentage)),
-                              );
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Summary Cards
-            ValueListenableBuilder(
-              valueListenable: WalletService.listenToExpenses(),
-              builder: (context, Box<Expenses> box, _) {
-                double totalMonthly = WalletService.getTotalExpenseForPeriod(
-                    const Duration(days: 30));
-                double totalWeekly = WalletService.getTotalExpenseForPeriod(
-                    const Duration(days: 7));
-                double totalDaily = WalletService.getTotalExpenseForPeriod(
-                    const Duration(days: 1));
-
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildSummaryCard("Monthly", formatRupiah(totalMonthly),
-                        "Spent this month"),
-                    _buildSummaryCard(
-                        "Weekly", formatRupiah(totalWeekly), "Spent this week",
-                        isHighlighted: true),
-                    _buildSummaryCard(
-                        "Daily", formatRupiah(totalDaily), "Spent this day"),
-                  ],
-                );
-              },
-            ),
-          ],
+              const SizedBox(height: 20),
+              _buildSummary(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTransactionItem(
-      String id, String title, String type, String amount) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(color: Colors.white, fontSize: 14)),
-              Text(type,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+  // ========================= HEADER =========================
+
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        ValueListenableBuilder(
+          valueListenable: WalletService.listenToUsername(),
+          builder: (context, Box<Username> box, _) {
+            String name = box.isNotEmpty ? box.getAt(0)?.name ?? '' : '';
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(greeting,
+                    style: const TextStyle(
+                        color: Colors.black54, fontSize: 14)), // Ubah ke hitam
+                Text(
+                  "Hello $name",
+                  style: const TextStyle(
+                      color: Colors.black, // Ubah ke hitam
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold),
+                ),
+              ],
+            );
+          },
+        ),
+
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.3),
+                blurRadius: 8,
+                spreadRadius: 2,
+                offset: const Offset(0, 3),
+              ),
             ],
           ),
-          Text(amount,
-              style: TextStyle(
-                color: type == "Saving" ? Colors.green : Colors.red,
-                fontWeight: FontWeight.bold,
-              )),
+          child: const Icon(Icons.account_balance_wallet_outlined,
+              color: Color(0xff6F41F2), size: 26),
+        ),
+      ],
+    );
+  }
+
+  // ====================== WALLET CARD =======================
+
+  Widget _buildWalletCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xff6F41F2),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.4),
+            blurRadius: 20,
+            spreadRadius: 5,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Total Wallet Balance",
+            style: TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ValueListenableBuilder(
+                valueListenable: WalletService.listenToBalance(),
+                builder: (context, Box<Wallet> box, _) {
+                  double bal = box.get('main')?.balance ?? 0.0;
+                  return Text(
+                    isHidden ? "••••••••" : formatRupiah(bal),
+                    style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  );
+                },
+              ),
+
+              InkWell(
+                onTap: () => setState(() => isHidden = !isHidden),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    isHidden ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              )
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Row(
+          //   mainAxisAlignment: MainAxisAlignment.end,
+          //   children: const [
+          //     Icon(Icons.credit_card, color: Colors.orange, size: 32),
+          //     SizedBox(width: 8),
+          //     Text(
+          //       "mastercard",
+          //       style: TextStyle(color: Colors.white, fontSize: 12),
+          //     )
+          //   ],
+          // ),
         ],
       ),
     );
   }
 
+  // ========================= TOP UP BUTTON =========================
+
+  Widget _buildTopUpButton() {
+    return Material(
+      elevation: 8,
+      borderRadius: BorderRadius.circular(16),
+      shadowColor: const Color(0xff6F41F2).withOpacity(0.4),
+      child: InkWell(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (_) => AddFundDialog(),
+          );
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xff6F41F2).withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xff6F41F2).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.add_circle_outlined,
+                  color: Color(0xff6F41F2),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                "Top Up Wallet",
+                style: TextStyle(
+                    color: Color(0xff6F41F2),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ======================== HISTORY ==========================
+
+  Widget _buildHistorySection() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 12,
+            spreadRadius: 3,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Transaction History",
+                  style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xff6F41F2).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  "Recent",
+                  style: TextStyle(
+                    color: Color(0xff6F41F2),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // EXPENSE LIST
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.redAccent,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text("Expense",
+                  style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildExpenseList(),
+
+          const SizedBox(height: 20),
+
+          // SAVING LIST
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text("Savings",
+                  style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _buildSavingList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExpenseList() {
+    return ValueListenableBuilder(
+      valueListenable: WalletService.listenToExpenses(),
+      builder: (context, Box<Expenses> box, _) {
+        List<Expenses> expenses = box.values.toList().reversed.toList();
+
+        if (expenses.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: Text("No expense history yet.",
+                  style: TextStyle(color: Colors.black54)),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 220,
+          child: ListView.builder(
+            itemCount: expenses.length,
+            padding: EdgeInsets.zero,
+            itemBuilder: (context, i) {
+              final e = expenses[i];
+              return _buildTransactionItem(
+                e.id.toString(),
+                e.description,
+                "Expense",
+                formatRupiah(e.amount),
+                isExpense: true,
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSavingList() {
+    return ValueListenableBuilder(
+      valueListenable: WalletService.listenToSavings(),
+      builder: (context, Box<Savings> box, _) {
+        List<Savings> list = box.values.toList().reversed.toList();
+
+        if (list.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Center(
+              child: Text("No savings history yet.",
+                  style: TextStyle(color: Colors.black54)),
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 220,
+          child: ListView.builder(
+            itemCount: list.length,
+            padding: EdgeInsets.zero,
+            itemBuilder: (context, i) {
+              final s = list[i];
+              return _buildTransactionItem(
+                s.id.toString(),
+                s.description,
+                "Saving",
+                "${(s.percentage * 100).toStringAsFixed(0)}%",
+                isExpense: false,
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // ======================== SUMMARY ==========================
+
+  Widget _buildSummary() {
+    return ValueListenableBuilder(
+      valueListenable: WalletService.listenToExpenses(),
+      builder: (context, Box<Expenses> _, __) {
+        double monthly =
+            WalletService.getTotalExpenseForPeriod(const Duration(days: 30));
+        double weekly =
+            WalletService.getTotalExpenseForPeriod(const Duration(days: 7));
+        double daily =
+            WalletService.getTotalExpenseForPeriod(const Duration(days: 1));
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildSummaryCard("Monthly", formatRupiah(monthly),
+                "Spent this month", Icons.calendar_month),
+            _buildSummaryCard("Weekly", formatRupiah(weekly),
+                "Spent this week", Icons.weekend,
+                isHighlighted: true),
+            _buildSummaryCard(
+                "Daily", formatRupiah(daily), "Spent today", Icons.today),
+          ],
+        );
+      },
+    );
+  }
+
+  // ===================== REUSABLE ITEM ========================
+
+  Widget _buildTransactionItem(
+      String id, String title, String type, String amount,
+      {required bool isExpense}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey[200]!,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isExpense
+                      ? Colors.redAccent.withOpacity(0.1)
+                      : Colors.green.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isExpense ? Icons.arrow_upward : Icons.arrow_downward,
+                  color: isExpense ? Colors.redAccent : Colors.green,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          color: Colors.black, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text(type,
+                      style: TextStyle(
+                          color: Colors.black54, fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+          Text(amount,
+              style: TextStyle(
+                  color: isExpense ? Colors.redAccent : Colors.green,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  // ===================== SUMMARY CARD =========================
+
   Widget _buildSummaryCard(String title, String amount, String subtitle,
-      {bool isHighlighted = false}) {
+      IconData icon, {bool isHighlighted = false}) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: isHighlighted ? Colors.yellow : Colors.grey[850],
-          borderRadius: BorderRadius.circular(12),
+          color: isHighlighted ? const Color(0xff6F41F2) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(isHighlighted ? 0.4 : 0.2),
+              blurRadius: 10,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: isHighlighted ? Colors.white : const Color(0xff6F41F2),
+                  size: 20,
+                ),
+                const SizedBox(width: 6),
+                Text(title,
+                    style: TextStyle(
+                        color: isHighlighted ? Colors.white : Colors.black87,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500)),
+              ],
+            ),
+            const SizedBox(height: 8),
             Text(amount,
                 style: TextStyle(
-                    color: isHighlighted ? Colors.black : Colors.yellow,
-                    fontSize: 18,
+                    color: isHighlighted ? Colors.white : Colors.black,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             Text(subtitle,
                 style: TextStyle(
-                    color: isHighlighted ? Colors.black : Colors.grey,
+                    color: isHighlighted ? Colors.white70 : Colors.black54,
                     fontSize: 10)),
           ],
         ),
