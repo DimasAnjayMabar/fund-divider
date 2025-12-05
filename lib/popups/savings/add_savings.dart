@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:fund_divider/model/hive.dart';
+import 'package:fund_divider/popups/error/error.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 import 'package:intl/intl.dart';
 
@@ -46,6 +48,27 @@ class _AddSavingsState extends State<AddSavings> {
     }
   }
 
+  // Fungsi untuk mengecek total persentase savings
+  Future<bool> _checkTotalPercentage(double newPercentage) async {
+    try {
+      // Get total current percentage
+      double currentTotalPercentage = WalletService.getTotalSavingsPercentage();
+      
+      // Add new percentage
+      double totalPercentage = currentTotalPercentage + newPercentage;
+      
+      // Convert to percentage (from decimal: 0.1 -> 10%)
+      double totalPercentagePercent = totalPercentage * 100;
+      
+      // Check if total exceeds 75%
+      return totalPercentagePercent <= 75.0;
+    } catch (e) {
+      // If there's an error, continue anyway (fallback)
+      debugPrint("Error checking total percentage: $e");
+      return true;
+    }
+  }
+
   void _submit() async {
     if (_formKey.currentState!.validate()) {
       String description = descriptionController.text;
@@ -72,6 +95,14 @@ class _AddSavingsState extends State<AddSavings> {
         return;
       }
       
+      // Cek total persentase tidak melebihi 75%
+      bool isPercentageValid = await _checkTotalPercentage(percentage);
+      if (!isPercentageValid) {
+        // Tampilkan error popup jika total persentase > 75%
+        _showPercentageErrorPopup(context);
+        return;
+      }
+      
       try {
         await WalletService.addSaving(description, percentage, 0, target);
         Navigator.of(context).pop();
@@ -79,6 +110,17 @@ class _AddSavingsState extends State<AddSavings> {
         _showErrorSnackbar("Failed to create savings: $e");
       }
     }
+  }
+
+  // Fungsi untuk menampilkan error popup ketika total persentase > 75%
+  void _showPercentageErrorPopup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => ErrorPopup(
+        errorMessage: "Total percentage of all savings cannot exceed 75%. "
+                     "Please adjust your savings percentage to stay within the limit.",
+      ),
+    );
   }
 
   void _showErrorSnackbar(String message) {
@@ -163,7 +205,19 @@ class _AddSavingsState extends State<AddSavings> {
                     ),
                   ),
                   
-                  const SizedBox(height: 24),
+                  // Tambah informasi batas persentase
+                  const SizedBox(height: 4),
+                  
+                  Text(
+                    "Total percentage of all savings cannot exceed 75%",
+                    style: TextStyle(
+                      color: const Color(0xff6F41F2).withOpacity(0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
                   
                   // Description Input
                   const Text(

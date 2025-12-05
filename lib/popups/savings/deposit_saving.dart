@@ -32,47 +32,26 @@ class _DepositSavingState extends State<DepositSaving> {
     depositController.dispose();
   }
 
-  InputDecoration _inputDecoration() {
-    return InputDecoration(
-      filled: true,
-      fillColor: Colors.grey[900],
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.grey),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.yellow),
-      ),
-    );
-  }
-
-  Widget _actionButton(String text, Color color, VoidCallback onPressed) {
-    return TextButton(
-      style: TextButton.styleFrom(
-        backgroundColor: color,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-      onPressed: onPressed,
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.black),
-      ),
-    );
-  }
-
   void _formatInput() {
-    String text = depositController.text.replaceAll('.', ''); // Remove existing dots
+    String text = depositController.text.replaceAll('.', '');
     if (text.isNotEmpty) {
-      double value = double.parse(text);
-      depositController.value = TextEditingValue(
-        text: currencyFormatter.format(value), // Format with thousand separator
-        selection: TextSelection.collapsed(offset: depositController.text.length),
-      );
+      try {
+        double value = double.parse(text);
+        depositController.value = TextEditingValue(
+          text: currencyFormatter.format(value),
+          selection: TextSelection.collapsed(offset: depositController.text.length),
+        );
+      } catch (e) {
+        // Handle parsing error
+      }
     }
+  }
+
+  void _setQuickAmount(String amount) {
+    String rawAmount = amount.replaceAll('.', '');
+    depositController.text = NumberFormat.decimalPattern('id_ID').format(
+      double.parse(rawAmount),
+    );
   }
 
   void _submit() async {
@@ -111,65 +90,330 @@ class _DepositSavingState extends State<DepositSaving> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.black,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Colors.white, width: 1),
-      ),
-      title: const Text("Deposit to Savings", style: TextStyle(color: Colors.yellow)),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "Enter deposit amount",
-                style: TextStyle(color: Colors.yellow),
-              ),
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.all(20),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 30,
+              spreadRadius: 5,
+              offset: const Offset(0, 10),
             ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: depositController,
-              style: const TextStyle(color: Colors.white),
-              keyboardType: TextInputType.number,
-              decoration: _inputDecoration(),
-              validator: (value) =>
-                  value == null || value.isEmpty ? "An amount is required" : null,
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ],
+        ),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Current Balance:",
-                    style: TextStyle(color: Colors.grey),
+                  // Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Deposit to Savings",
+                        style: TextStyle(
+                          color: Color(0xff6F41F2),
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: Colors.grey[600],
+                          size: 24,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    "Rp ${currencyFormatter.format(WalletService.getBalance())}",
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  
+                  const SizedBox(height: 8),
+                  
+                  const Text(
+                    "Add money to your savings goal",
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: 14,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Deposit Amount Input
+                  const Text(
+                    "Deposit Amount",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xff6F41F2).withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 60,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xff6F41F2).withOpacity(0.1),
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(12),
+                              bottomLeft: Radius.circular(12),
+                            ),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              "Rp",
+                              style: TextStyle(
+                                color: Color(0xff6F41F2),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextFormField(
+                            controller: depositController,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: const InputDecoration(
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              border: InputBorder.none,
+                              hintText: "100.000",
+                              hintStyle: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 18,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return "Please enter a deposit amount";
+                              }
+                              try {
+                                String rawText = value.replaceAll('.', '');
+                                double amount = double.parse(rawText);
+                                if (amount <= 0) {
+                                  return "Amount must be greater than 0";
+                                }
+                              } catch (e) {
+                                return "Please enter a valid number";
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Current Balance Display
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xff6F41F2).withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xff6F41F2).withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Available Balance:",
+                          style: TextStyle(
+                            color: Color(0xff6F41F2),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          "Rp ${currencyFormatter.format(WalletService.getBalance())}",
+                          style: const TextStyle(
+                            color: Color(0xff6F41F2),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Quick Amount Buttons
+                  const Text(
+                    "Quick Deposit Amount",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickAmountButton("50.000"),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickAmountButton("100.000"),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickAmountButton("250.000"),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 10),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildQuickAmountButton("500.000"),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickAmountButton("750.000"),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildQuickAmountButton("1.000.000"),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Deposit Button
+                  Material(
+                    elevation: 5,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xff6F41F2),
+                            Color(0xff5A32D6),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xff6F41F2).withOpacity(0.4),
+                            blurRadius: 15,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.arrow_upward_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              "Deposit",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
-      actions: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _actionButton("Cancel", Colors.yellow, () {
-              Navigator.of(context).pop();
-            }),
-            const SizedBox(width: 10),
-            _actionButton("Save", Colors.yellow, _submit),
-          ],
-        )
-      ],
+    );
+  }
+
+  Widget _buildQuickAmountButton(String amount) {
+    return OutlinedButton(
+      onPressed: () => _setQuickAmount(amount),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        side: BorderSide(
+          color: const Color(0xff6F41F2).withOpacity(0.3),
+          width: 1.5,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        backgroundColor: Colors.white,
+      ),
+      child: Text(
+        "Rp$amount",
+        style: const TextStyle(
+          color: Color(0xff6F41F2),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }

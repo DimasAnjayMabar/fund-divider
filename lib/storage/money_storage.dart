@@ -229,4 +229,21 @@ class WalletService {
   static ValueListenable<Box<Username>> listenToUsername() {
     return _usernameBox.listenable();
   }
+
+  /// **Get all savings**
+  static List<Savings> getAllSavings() {
+    return _savingsBox.values.map((saving) {
+      return Savings(
+          id: saving.id,
+          description: saving.description,
+          percentage: saving.percentage,
+          amount: saving.amount,
+          target: saving.target,
+          date_added: saving.date_added);
+    }).toList();
+  }
+
+  static double getTotalSavingsPercentage() {
+    return _savingsBox.values.fold(0.0, (sum, saving) => sum + saving.percentage);
+  }
 }

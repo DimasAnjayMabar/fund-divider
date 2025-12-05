@@ -365,6 +365,7 @@ class _WalletPageState extends State<WalletPage> {
       valueListenable: WalletService.listenToExpenses(),
       builder: (context, Box<Expenses> box, _) {
         List<Expenses> expenses = box.values.toList().reversed.toList();
+        List<Expenses> recentExpenses = expenses.take(3).toList();
 
         if (expenses.isEmpty) {
           return Container(
@@ -380,22 +381,38 @@ class _WalletPageState extends State<WalletPage> {
           );
         }
 
-        return SizedBox(
-          height: 220,
-          child: ListView.builder(
-            itemCount: expenses.length,
-            padding: EdgeInsets.zero,
-            itemBuilder: (context, i) {
-              final e = expenses[i];
-              return _buildTransactionItem(
-                e.id.toString(),
-                e.description,
-                "Expense",
-                formatRupiah(e.amount),
-                isExpense: true,
-              );
-            },
-          ),
+        return Column(
+          children: [
+            ...recentExpenses.map((e) => _buildTransactionItem(
+                  e.id.toString(),
+                  e.description,
+                  "Expense",
+                  formatRupiah(e.amount),
+                  isExpense: true,
+                )),
+            
+            // Tampilkan "View All" jika ada lebih dari 3 transaksi
+            if (expenses.length > 3)
+              TextButton(
+                onPressed: () {
+                  // TODO: Implement view all page/dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Total expenses: ${expenses.length}'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: Text(
+                  "View All (${expenses.length})",
+                  style: TextStyle(
+                    color: Color(0xff6F41F2),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -406,6 +423,7 @@ class _WalletPageState extends State<WalletPage> {
       valueListenable: WalletService.listenToSavings(),
       builder: (context, Box<Savings> box, _) {
         List<Savings> list = box.values.toList().reversed.toList();
+        List<Savings> recentSavings = list.take(3).toList();
 
         if (list.isEmpty) {
           return Container(
@@ -421,22 +439,38 @@ class _WalletPageState extends State<WalletPage> {
           );
         }
 
-        return SizedBox(
-          height: 220,
-          child: ListView.builder(
-            itemCount: list.length,
-            padding: EdgeInsets.zero,
-            itemBuilder: (context, i) {
-              final s = list[i];
-              return _buildTransactionItem(
-                s.id.toString(),
-                s.description,
-                "Saving",
-                "${(s.percentage * 100).toStringAsFixed(0)}%",
-                isExpense: false,
-              );
-            },
-          ),
+        return Column(
+          children: [
+            ...recentSavings.map((s) => _buildTransactionItem(
+                  s.id.toString(),
+                  s.description,
+                  "Saving",
+                  "${(s.percentage * 100).toStringAsFixed(0)}%",
+                  isExpense: false,
+                )),
+            
+            // Tampilkan "View All" jika ada lebih dari 3 transaksi
+            if (list.length > 3)
+              TextButton(
+                onPressed: () {
+                  // TODO: Implement view all page/dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Total savings: ${list.length}'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                child: Text(
+                  "View All (${list.length})",
+                  style: TextStyle(
+                    color: Color(0xff6F41F2),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );

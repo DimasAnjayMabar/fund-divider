@@ -96,7 +96,7 @@ class _SavingsPageState extends State<SavingsPage> with SingleTickerProviderStat
                     // Rounded AppBar yang responsif
                     SliverAppBar(
                       backgroundColor: Colors.white,
-                      expandedHeight: isLandscape ? 120 : 140, // Tambah tinggi
+                      expandedHeight: isLandscape ? 120 : 120,
                       floating: false,
                       pinned: true,
                       shape: const RoundedRectangleBorder(
@@ -124,7 +124,6 @@ class _SavingsPageState extends State<SavingsPage> with SingleTickerProviderStat
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   // Title Row dengan statistik ringkas
                                   Row(
@@ -220,6 +219,8 @@ class _SavingsPageState extends State<SavingsPage> with SingleTickerProviderStat
                                       ),
                                     ],
                                   ),
+
+                                  const SizedBox(height: 12),
                                   
                                   // Subtitle dengan informasi tambahan
                                   ValueListenableBuilder(
@@ -280,7 +281,7 @@ class _SavingsPageState extends State<SavingsPage> with SingleTickerProviderStat
 
                     // Tambahkan spacing setelah AppBar
                     SliverToBoxAdapter(
-                      child: SizedBox(height: 16), // Margin antara AppBar dan list
+                      child: SizedBox(height: 16),
                     ),
                     
                     // Savings List
@@ -330,35 +331,6 @@ class _SavingsPageState extends State<SavingsPage> with SingleTickerProviderStat
                                           color: Colors.black45,
                                           fontSize: isLandscape ? 12 : 14,
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 12,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xff6F41F2).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.info_outline,
-                                            color: const Color(0xff6F41F2),
-                                            size: 16,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            "Swipe left on a goal to deposit",
-                                            style: TextStyle(
-                                              color: const Color(0xff6F41F2),
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
                                       ),
                                     ),
                                   ],
@@ -542,72 +514,48 @@ class _SavingsPageState extends State<SavingsPage> with SingleTickerProviderStat
         return false;
       },
       
-      // Background untuk swipe ke KIRI (Deposit)
+      // Background untuk swipe KANAN (Edit) - warna amber
       background: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 12,
-        ),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: const Color(0xff6F41F2).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            colors: [
+              Colors.amber.shade400,
+              Colors.amber.shade700,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(14),
         ),
-        child: Column(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.swipe,
-                  color: const Color(0xff6F41F2),
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  "Swipe Actions",
-                  style: TextStyle(
-                    color: const Color(0xff6F41F2),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.edit,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.arrow_forward, color: Colors.blue, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  "Swipe right to Edit",
-                  style: TextStyle(
-                    color: Colors.black54,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.arrow_back, color: Colors.green, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  "Swipe left to Deposit",
-                  style: TextStyle(
-                    color: Colors.black54,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
+            const SizedBox(width: 8),
+            const Text(
+              "Edit",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
       ),
       
-      // Secondary background untuk swipe ke KANAN (Edit)
+      // Background untuk swipe ke KIRI (Deposit) - warna hijau
       secondaryBackground: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20),

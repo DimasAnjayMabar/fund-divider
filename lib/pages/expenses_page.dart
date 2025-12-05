@@ -132,7 +132,7 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
                     // Rounded AppBar dengan statistik
                   SliverAppBar(
                     backgroundColor: Colors.white,
-                    expandedHeight: isLandscape ? 160 : 200,
+                    expandedHeight: isLandscape ? 220 : 190,
                     floating: false,
                     pinned: true,
                     shape: const RoundedRectangleBorder(

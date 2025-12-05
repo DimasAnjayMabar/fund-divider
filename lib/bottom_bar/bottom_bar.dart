@@ -16,6 +16,7 @@ class BottomBar extends StatefulWidget {
 
 class _BottomBarState extends State<BottomBar> {
   int _selectedIndex = 0;
+  final PageController _pageController = PageController();
 
   final List<Widget> _pages = [
     const WalletPage(),
@@ -25,13 +26,25 @@ class _BottomBarState extends State<BottomBar> {
   ];
 
   @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(), // Nonaktifkan swipe manual
+        onPageChanged: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
         children: _pages,
       ),
-      backgroundColor: Color(0xFFD9D9D9), // Sesuai dengan background wallet page
+      backgroundColor: Color(0xFFD9D9D9),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -48,152 +61,49 @@ class _BottomBarState extends State<BottomBar> {
             topRight: Radius.circular(25),
           ),
         ),
-        child: Stack(
-          children: [
-            SalomonBottomBar(
-              backgroundColor: Colors.transparent,
-              currentIndex: _selectedIndex,
-              selectedItemColor: const Color(0xff6F41F2),
-              unselectedItemColor: Colors.grey[600],
-              margin: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 15,
-              ),
-              itemPadding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 8,
-              ),
+        child: SalomonBottomBar(
+          backgroundColor: Colors.transparent,
+          currentIndex: _selectedIndex,
+          selectedItemColor: const Color(0xff6F41F2),
+          unselectedItemColor: Colors.grey[600],
+          margin: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 15,
+          ),
+          itemPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
+          curve: Curves.easeInOut,
+          onTap: (index) {
+            // Animasi geser ke halaman yang dituju
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
-              onTap: (index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
-              items: [
-                // Wallet
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.account_balance_wallet_outlined),
-                  title: const Text("Wallet"),
-                  selectedColor: const Color(0xff6F41F2),
-                ),
-                // Expenses
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.edit_note_outlined),
-                  title: const Text("Expenses"),
-                  selectedColor: const Color(0xff6F41F2),
-                ),
-                // Placeholder untuk posisi tengah (akan ditimpa tombol scan)
-                // SalomonBottomBarItem(
-                //   icon: const SizedBox.shrink(),
-                //   title: const SizedBox.shrink(),
-                //   selectedColor: Colors.transparent,
-                // ),
-                // Savings
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.savings_outlined),
-                  title: const Text("Savings"),
-                  selectedColor: const Color(0xff6F41F2),
-                ),
-                // Settings
-                SalomonBottomBarItem(
-                  icon: const Icon(Icons.settings_outlined),
-                  title: const Text("Settings"),
-                  selectedColor: const Color(0xff6F41F2),
-                ),
-              ],
+            );
+          },
+          items: [
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.account_balance_wallet_outlined),
+              title: const Text("Wallet"),
+              selectedColor: const Color(0xff6F41F2),
             ),
-            
-            // Floating Scan Button di Tengah
-            // Positioned(
-            //   left: MediaQuery.of(context).size.width / 2 - 35,
-            //   bottom: 30,
-            //   child: GestureDetector(
-            //     onTap: () {
-            //       setState(() {
-            //         _selectedIndex = 2;
-            //       });
-            //     },
-            //     child: Container(
-            //       width: 70,
-            //       height: 70,
-            //       decoration: BoxDecoration(
-            //         color: const Color(0xff6F41F2),
-            //         shape: BoxShape.circle,
-            //         boxShadow: [
-            //           BoxShadow(
-            //             color: const Color(0xff6F41F2).withOpacity(0.4),
-            //             blurRadius: 20,
-            //             spreadRadius: 3,
-            //             offset: const Offset(0, 8),
-            //           ),
-            //           BoxShadow(
-            //             color: Colors.white.withOpacity(0.1),
-            //             blurRadius: 10,
-            //             spreadRadius: -3,
-            //             offset: const Offset(-3, -3),
-            //           ),
-            //         ],
-            //         gradient: const LinearGradient(
-            //           begin: Alignment.topLeft,
-            //           end: Alignment.bottomRight,
-            //           colors: [
-            //             Color(0xff6F41F2),
-            //             Color(0xff5A32D6),
-            //           ],
-            //         ),
-            //       ),
-            //       child: Stack(
-            //         children: [
-            //           // Outer ring glow effect
-            //           Container(
-            //             margin: const EdgeInsets.all(2),
-            //             decoration: BoxDecoration(
-            //               shape: BoxShape.circle,
-            //               border: Border.all(
-            //                 color: Colors.white.withOpacity(0.2),
-            //                 width: 1,
-            //               ),
-            //             ),
-            //           ),
-            //           // Inner content
-            //           Center(
-            //             child: Container(
-            //               padding: const EdgeInsets.all(14),
-            //               decoration: BoxDecoration(
-            //                 shape: BoxShape.circle,
-            //                 color: Colors.white.withOpacity(0.1),
-            //               ),
-            //               child: Icon(
-            //                 Icons.qr_code_scanner_rounded,
-            //                 color: Colors.white,
-            //                 size: 30,
-            //               ),
-            //             ),
-            //           ),
-                      
-            //           // Indicator untuk halaman aktif
-            //           if (_selectedIndex == 2)
-            //             Positioned(
-            //               top: 10,
-            //               right: 10,
-            //               child: Container(
-            //                 width: 8,
-            //                 height: 8,
-            //                 decoration: BoxDecoration(
-            //                   color: Colors.white,
-            //                   shape: BoxShape.circle,
-            //                   border: Border.all(
-            //                     color: const Color(0xff6F41F2),
-            //                     width: 2,
-            //                   ),
-            //                 ),
-            //               ),
-            //             ),
-            //         ],
-            //       ),
-            //     ),
-            //   ),
-            // ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.edit_note_outlined),
+              title: const Text("Expenses"),
+              selectedColor: const Color(0xff6F41F2),
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.savings_outlined),
+              title: const Text("Savings"),
+              selectedColor: const Color(0xff6F41F2),
+            ),
+            SalomonBottomBarItem(
+              icon: const Icon(Icons.settings_outlined),
+              title: const Text("Settings"),
+              selectedColor: const Color(0xff6F41F2),
+            ),
           ],
         ),
       ),
