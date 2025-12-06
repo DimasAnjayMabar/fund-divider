@@ -47,6 +47,10 @@ dependencies:
   flutter_slidable: ^2.0.0
   iconsax: ^0.0.8
   image_picker: ^1.0.4
+  excel: ^2.0.1
+  path_provider: ^2.1.0
+  open_file: ^3.3.3
+  file_saver: ^0.2.1
   
 
 dev_dependencies:

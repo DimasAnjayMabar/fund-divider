@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:fund_divider/model/export_excel.dart';
 import 'package:fund_divider/model/hive.dart';
+import 'package:fund_divider/popups/confirmation/confirmation_popup.dart';
+import 'package:fund_divider/popups/error/error.dart';
 import 'package:fund_divider/popups/expenses/add_expense_dialog.dart';
 import 'package:fund_divider/popups/expenses/edit_expenses.dart';
 import 'package:fund_divider/storage/money_storage.dart';
@@ -20,6 +25,17 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
   late Animation<double> _fabAnimation;
   late Animation<double> _backdropAnimation;
   final ImagePicker _picker = ImagePicker();
+  StreamSubscription<int>? _expenseCountSubscription;
+  StreamSubscription<Map<String, double>>? _summarySubscription;
+  int _totalExpensesCount = 0;
+  
+  // Pagination variables
+  int _currentPage = 1;
+  bool _hasMoreItems = true;
+  bool _isLoading = false;
+  final int _itemsPerPage = 20;
+  final List<Expenses> _expenses = [];
+  final ScrollController _scrollController = ScrollController();
   
   @override
   void initState() {
@@ -39,12 +55,113 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
       parent: _animationController,
       curve: Curves.easeInOut,
     );
+
+    // Inisialisasi count pertama kali
+    _totalExpensesCount = WalletService.getExpensesCount();
+    
+    // Setup stream untuk count dan summary (ringan)
+    _setupStreams();
+    
+    // Load initial expenses
+    _loadMoreItems();
+    
+    // Setup scroll listener for pagination
+    _scrollController.addListener(_scrollListener);
   }
   
   @override
   void dispose() {
+    _expenseCountSubscription?.cancel();
+    _summarySubscription?.cancel();
     _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+  
+  void _scrollListener() {
+    if (_scrollController.offset >= _scrollController.position.maxScrollExtent &&
+        !_scrollController.position.outOfRange &&
+        _hasMoreItems &&
+        !_isLoading) {
+      _loadMoreItems();
+    }
+  }
+
+  void _setupStreams() {
+    // Stream untuk total count (O(1))
+    _expenseCountSubscription = WalletService.watchExpenseCount()
+      .listen((count) {
+        if (mounted) {
+          setState(() {
+            _totalExpensesCount = count;
+          });
+        }
+      });
+    
+    // Stream untuk summary (ringan, sudah dicache)
+    _summarySubscription = WalletService.watchExpenseSummary()
+      .listen((summary) {
+        if (mounted) {
+          setState(() {
+            // Update UI jika diperlukan
+          });
+        }
+      });
+  }
+  
+  Future<void> _loadMoreItems() async {
+    if (_isLoading || !_hasMoreItems) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Use paginated API
+      final newItems = WalletService.getExpensesPaginated(
+        page: _currentPage,
+        limit: _itemsPerPage,
+        sortByNewest: true,
+      );
+      
+      if (newItems.isEmpty) {
+        setState(() {
+          _hasMoreItems = false;
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      setState(() {
+        _expenses.addAll(newItems);
+        _currentPage++;
+        _isLoading = false;
+      });
+      
+      // If we got less items than requested, there are no more items
+      if (newItems.length < _itemsPerPage) {
+        setState(() {
+          _hasMoreItems = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading expenses: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+  
+  void _refreshExpenses() {
+    setState(() {
+      _currentPage = 1;
+      _expenses.clear();
+      _hasMoreItems = true;
+      _isLoading = false;
+      // Update count juga
+      _totalExpensesCount = WalletService.getExpensesCount();
+    });
+    _loadMoreItems();
   }
   
   void _toggleFab() {
@@ -64,39 +181,54 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
   }
 
   // Function to open camera
-  Future<void> _openCamera() async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        preferredCameraDevice: CameraDevice.rear,
-      );
+  // Future<void> _openCamera() async {
+  //   try {
+  //     final XFile? image = await _picker.pickImage(
+  //       source: ImageSource.camera,
+  //       imageQuality: 85,
+  //       preferredCameraDevice: CameraDevice.rear,
+  //     );
       
-      if (image != null) {
-        // TODO: Implement receipt scanning logic here
-        print('Image captured: ${image.path}');
+  //     if (image != null) {
+  //       // TODO: Implement receipt scanning logic here
+  //       print('Image captured: ${image.path}');
         
-        // For now, show a snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Receipt captured: ${image.path.split('/').last}'),
-            backgroundColor: const Color(0xff6F41F2),
-            duration: const Duration(seconds: 2),
-          ),
+  //       // For now, show a snackbar
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Receipt captured: ${image.path.split('/').last}'),
+  //           backgroundColor: const Color(0xff6F41F2),
+  //           duration: const Duration(seconds: 2),
+  //         ),
+  //       );
+        
+  //       // Close the expanded FAB
+  //       _toggleFab();
+  //     }
+  //   } catch (e) {
+  //     print('Error opening camera: $e');
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: const Text('Failed to open camera'),
+  //         backgroundColor: Colors.red,
+  //       ),
+  //     );
+  //   }
+  // }
+
+  Future<void> _openCamera() async {
+    // Tampilkan modal error
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return ErrorPopup(
+          errorMessage: "Sorry, we still build this feature, please stay tune",
         );
-        
-        // Close the expanded FAB
-        _toggleFab();
-      }
-    } catch (e) {
-      print('Error opening camera: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Failed to open camera'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+      },
+    );
+    
+    // Close the expanded FAB
+    _toggleFab();
   }
 
   // Function to show add expense dialog
@@ -107,6 +239,71 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
         return AddMainExpenseDialog();
       },
     ).then((_) {
+      _toggleFab();
+      // Refresh the list when a new expense is added
+      _refreshExpenses();
+    });
+  }
+
+  void _exportToExcel() async {
+    // Get ALL expenses for export (not paginated)
+    final allExpenses = WalletService.getExpense();
+    
+    if (allExpenses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No expenses to export'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    
+    // Show confirmation dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return ConfirmationPopup(
+          title: 'Export Expenses',
+          errorMessage: 'Are you sure you want to export ${allExpenses.length} expense items to Excel?',
+          onConfirm: () async {
+            try {
+              final result = await ExcelExport.exportExpensesToExcel(allExpenses);
+              
+              if (result) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Expenses exported successfully'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Failed to export expenses'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            } catch (e) {
+              print('Error exporting to Excel: $e');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error: ${e.toString()}'),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+          primaryColor: const Color(0xff6F41F2),
+        );
+      },
+    ).then((_) {
+      // Close the expanded FAB after showing dialog
       _toggleFab();
     });
   }
@@ -127,146 +324,163 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
               // Main Content
               SafeArea(
                 child: CustomScrollView(
+                  controller: _scrollController,
                   physics: const BouncingScrollPhysics(),
                   slivers: [
                     // Rounded AppBar dengan statistik
-                  SliverAppBar(
-                    backgroundColor: Colors.white,
-                    expandedHeight: isLandscape ? 220 : 190,
-                    floating: false,
-                    pinned: true,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(25),
-                        bottomRight: Radius.circular(25),
-                      ),
-                    ),
-                    flexibleSpace: FlexibleSpaceBar(
-                      background: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(25),
-                            bottomRight: Radius.circular(25),
-                          ),
+                    SliverAppBar(
+                      backgroundColor: Colors.white,
+                      expandedHeight: isLandscape ? 240 : 220,
+                      floating: false,
+                      pinned: true,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(25),
+                          bottomRight: Radius.circular(25),
                         ),
-                        child: SafeArea(
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              isSmallScreen ? 16 : 20,
-                              12,
-                              isSmallScreen ? 16 : 20,
-                              16,
+                      ),
+                      flexibleSpace: FlexibleSpaceBar(
+                        background: Container(
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              bottomLeft: Radius.circular(25),
+                              bottomRight: Radius.circular(25),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Title Row
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Flexible(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                          ),
+                          child: SafeArea(
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                isSmallScreen ? 16 : 20,
+                                12,
+                                isSmallScreen ? 16 : 20,
+                                16,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Title Row
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Flexible(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              "Expenses",
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: isSmallScreen ? 20 : 24,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              "Track your spending",
+                                              style: TextStyle(
+                                                color: Colors.black54,
+                                                fontSize: isSmallScreen ? 11 : 13,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              "Information - Your expenses list is auto reset within 90 days, make sure to export them",
+                                              style: TextStyle(
+                                                color: Colors.black54,
+                                                fontSize: isSmallScreen ? 11 : 13,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Container(
+                                        padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xff6F41F2).withOpacity(0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          Icons.pie_chart_outline,
+                                          color: const Color(0xff6F41F2),
+                                          size: isSmallScreen ? 18 : 22,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  
+                                  const Spacer(),
+                                  
+                                  // Statistics Cards - Responsive Grid
+                                  StreamBuilder<Map<String, double>>(
+                                    stream: WalletService.watchExpenseSummary(),
+                                    initialData: WalletService.getExpenseSummary(),
+                                    builder: (context, snapshot) {
+                                      final summary = snapshot.data ?? {
+                                        'daily': 0.0,
+                                        'weekly': 0.0,
+                                        'monthly': 0.0,
+                                      };
+                                      
+                                      return Row(
                                         children: [
-                                          Text(
-                                            "Expenses",
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontSize: isSmallScreen ? 20 : 24,
-                                              fontWeight: FontWeight.bold,
+                                          // Today Card
+                                          Expanded(
+                                            child: _buildStatisticsCard(
+                                              context,
+                                              title: "Today",
+                                              amount: formatRupiah(summary['daily'] ?? 0),
+                                              icon: Icons.today,
+                                              color: const Color(0xff6F41F2),
+                                              isVerySmall: isSmallScreen,
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            "Track your spending",
-                                            style: TextStyle(
-                                              color: Colors.black54,
-                                              fontSize: isSmallScreen ? 11 : 13,
+                                          
+                                          const SizedBox(width: 8),
+                                          
+                                          // Weekly Card
+                                          Expanded(
+                                            child: _buildStatisticsCard(
+                                              context,
+                                              title: "Week",
+                                              amount: formatRupiah(summary['weekly'] ?? 0),
+                                              icon: Icons.weekend,
+                                              color: const Color(0xff6F41F2),
+                                              isVerySmall: isSmallScreen,
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          
+                                          const SizedBox(width: 8),
+                                          
+                                          // Monthly Card
+                                          Expanded(
+                                            child: _buildStatisticsCard(
+                                              context,
+                                              title: "Month",
+                                              amount: formatRupiah(summary['monthly'] ?? 0),
+                                              icon: Icons.calendar_month,
+                                              color: const Color(0xff6F41F2),
+                                              isVerySmall: isSmallScreen,
+                                            ),
                                           ),
                                         ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Container(
-                                      padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xff6F41F2).withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.pie_chart_outline,
-                                        color: const Color(0xff6F41F2),
-                                        size: isSmallScreen ? 18 : 22,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                
-                                const Spacer(),
-                                
-                                // Statistics Cards - Responsive Grid
-                                Row(
-                                  children: [
-                                    // Today Card
-                                    Expanded(
-                                      child: _buildStatisticsCard(
-                                        context,
-                                        title: "Today",
-                                        amount: formatRupiah(WalletService.getTotalExpenseForPeriod(
-                                          const Duration(days: 1),
-                                        )),
-                                        icon: Icons.today,
-                                        color: const Color(0xff6F41F2),
-                                        isVerySmall: isSmallScreen,
-                                      ),
-                                    ),
-                                    
-                                    const SizedBox(width: 8),
-                                    
-                                    // Weekly Card
-                                    Expanded(
-                                      child: _buildStatisticsCard(
-                                        context,
-                                        title: "Week",
-                                        amount: formatRupiah(WalletService.getTotalExpenseForPeriod(
-                                          const Duration(days: 7),
-                                        )),
-                                        icon: Icons.weekend,
-                                        color: const Color(0xff6F41F2),
-                                        isVerySmall: isSmallScreen,
-                                      ),
-                                    ),
-                                    
-                                    const SizedBox(width: 8),
-                                    
-                                    // Monthly Card
-                                    Expanded(
-                                      child: _buildStatisticsCard(
-                                        context,
-                                        title: "Month",
-                                        amount: formatRupiah(WalletService.getTotalExpenseForPeriod(
-                                          const Duration(days: 30),
-                                        )),
-                                        icon: Icons.calendar_month,
-                                        color: const Color(0xff6F41F2),
-                                        isVerySmall: isSmallScreen,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
                     
                     // Expenses List Header
                     SliverToBoxAdapter(
@@ -281,7 +495,7 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              "Recent Expenses",
+                              "All Expenses",
                               style: TextStyle(
                                 color: Colors.black,
                                 fontSize: isSmallScreen ? 16 : 18,
@@ -297,18 +511,13 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
                                 color: const Color(0xff6F41F2).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: ValueListenableBuilder(
-                                valueListenable: Hive.box<Expenses>('expensesBox').listenable(),
-                                builder: (context, Box<Expenses> box, _) {
-                                  return Text(
-                                    "${box.length} items",
-                                    style: TextStyle(
-                                      color: const Color(0xff6F41F2),
-                                      fontSize: isSmallScreen ? 10 : 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  );
-                                },
+                              child: Text(
+                                "$_totalExpensesCount items",  // <-- PAKAI VARIABLE LOKAL
+                                style: TextStyle(
+                                  color: const Color(0xff6F41F2),
+                                  fontSize: isSmallScreen ? 10 : 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ],
@@ -316,87 +525,84 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
                       ),
                     ),
                     
-                    // Expenses List
-                    ValueListenableBuilder(
-                      valueListenable: Hive.box<Expenses>('expensesBox').listenable(),
-                      builder: (context, Box<Expenses> box, _) {
-                        if (box.isEmpty) {
-                          return SliverFillRemaining(
-                            hasScrollBody: false,
-                            child: Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xff6F41F2).withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.receipt_long_outlined,
-                                        color: const Color(0xff6F41F2),
-                                        size: isLandscape ? 36 : 44,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      "No expenses yet",
-                                      style: TextStyle(
-                                        color: Colors.black54,
-                                        fontSize: isLandscape ? 16 : 18,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: isLandscape ? 20 : 40,
-                                      ),
-                                      child: Text(
-                                        "Add your first expense to get started",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.black45,
-                                          fontSize: isLandscape ? 12 : 14,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                    // Expenses List with pagination
+                    if (_expenses.isEmpty && !_isLoading)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xff6F41F2).withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.receipt_long_outlined,
+                                    color: const Color(0xff6F41F2),
+                                    size: isLandscape ? 36 : 44,
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  "No expenses yet",
+                                  style: TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: isLandscape ? 16 : 18,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isLandscape ? 20 : 40,
+                                  ),
+                                  child: Text(
+                                    "Add your first expense to get started",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.black45,
+                                      fontSize: isLandscape ? 12 : 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          );
-                        }
-
-                        final expenses = box.values.toList().reversed.toList();
-                        
-                        return SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final expense = expenses[index];
-                              return Padding(
-                                padding: EdgeInsets.fromLTRB(
-                                  isSmallScreen ? 12 : 16,
-                                  index == 0 ? 4 : 8,
-                                  isSmallScreen ? 12 : 16,
-                                  index == expenses.length - 1 ? 100 : 0,
-                                ),
-                                child: _buildExpenseCard(
-                                  context,
-                                  expense,
-                                  isSmallScreen: isSmallScreen,
-                                  isLandscape: isLandscape,
-                                ),
-                              );
-                            },
-                            childCount: expenses.length,
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      )
+                    else
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            // Show loading indicator at the end
+                            if (index == _expenses.length) {
+                              return _buildLoadingIndicator();
+                            }
+                            
+                            final expense = _expenses[index];
+                            return Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                isSmallScreen ? 12 : 16,
+                                index == 0 ? 4 : 8,
+                                isSmallScreen ? 12 : 16,
+                                index == _expenses.length - 1 && !_hasMoreItems ? 100 : 0,
+                              ),
+                              child: _buildExpenseCard(
+                                context,
+                                expense,
+                                isSmallScreen: isSmallScreen,
+                                isLandscape: isLandscape,
+                              ),
+                            );
+                          },
+                          childCount: _expenses.length + (_hasMoreItems ? 1 : 0),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -475,6 +681,30 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
                         ),
                       ),
                     ),
+
+                    // Export to excel
+                    AnimatedBuilder(
+                      animation: _fabAnimation,
+                      builder: (context, child) {
+                        return Transform.translate(
+                          offset: Offset(0, -180 * (1 - _fabAnimation.value)),
+                          child: Opacity(
+                            opacity: _fabAnimation.value,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildFabOption(
+                          icon: Icons.download_rounded,
+                          label: "Export to Excel",
+                          color: const Color(0xff6F41F2),
+                          onTap: _exportToExcel,
+                          isSmallScreen: isSmallScreen,
+                        ),
+                      ),
+                    ),
                     
                     // Main FAB dengan animasi rotasi
                     GestureDetector(
@@ -522,6 +752,30 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: _isLoading
+            ? const CircularProgressIndicator(
+                color: Color(0xff6F41F2),
+              )
+            : _hasMoreItems
+                ? const SizedBox() // Will trigger when scrolled
+                : Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      "No more expenses",
+                      style: TextStyle(
+                        color: Colors.black54,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
       ),
     );
   }
@@ -668,112 +922,225 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
     required bool isLandscape,
     required bool isSmallScreen,
   }) {
-    return Material(
-      elevation: 2,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: () {
-          showDialog(
+    return Dismissible(
+      key: Key(expense.id.toString()),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.endToStart) {
+          // Swipe left - Delete expense
+          final bool? result = await showDialog<bool>(
+            context: context,
+            builder: (BuildContext context) {
+              return ConfirmationPopup(
+                title: "Delete Expense",
+                errorMessage: "Are you sure you want to delete '${expense.description}' for ${formatRupiah(expense.amount)}?",
+                onConfirm: () async {
+                  await WalletService.deleteExpense(expense);
+                  _refreshExpenses();
+                },
+                primaryColor: Colors.red,
+              );
+            },
+          );
+          return result ?? false;
+        } else if (direction == DismissDirection.startToEnd) {
+          // Swipe right - Edit expense
+          await showDialog(
             context: context,
             builder: (BuildContext context) {
               return EditExpenses(expenseId: expense.id);
             },
-          );
-        },
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+          ).then((_) {
+            _refreshExpenses();
+          });
+          return false; // Tidak dismiss card
+        }
+        return false;
+      },
+      
+      // Background untuk swipe KANAN (Edit) - warna biru
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.amber.shade400,
+              Colors.amber.shade700,
+            ],
           ),
-          child: Row(
-            children: [
-              // Icon Container
-              Container(
-                padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
-                decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.arrow_upward_rounded,
-                  color: Colors.red,
-                  size: isSmallScreen ? 14 : 16,
-                ),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
               ),
-              
-              SizedBox(width: isSmallScreen ? 10 : 12),
-              
-              // Expense Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      expense.description,
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: isSmallScreen ? 13 : 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      DateFormat('dd MMM - HH:mm').format(expense.date_added),
-                      style: TextStyle(
-                        color: Colors.black54,
-                        fontSize: isSmallScreen ? 9 : 11,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+              child: const Icon(
+                Icons.edit,
+                color: Colors.white,
+                size: 20,
               ),
-              
-              // Amount
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      formatRupiah(expense.amount),
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: isSmallScreen ? 13 : 14,
-                        fontWeight: FontWeight.bold,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "Edit",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    
+      // Background untuk swipe ke KIRI (Delete) - warna merah
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.red.shade400,
+              Colors.red.shade600,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            const Text(
+              "Delete",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ],
+        ),
+      ),
+      
+      child: Material(
+        elevation: 2,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: () {
+            // _showEditExpenseDialog(expense);
+          },
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                // Icon Container
+                Container(
+                  padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.arrow_upward_rounded,
+                    color: Colors.red,
+                    size: isSmallScreen ? 14 : 16,
+                  ),
+                ),
+                
+                SizedBox(width: isSmallScreen ? 10 : 12),
+                
+                // Expense Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        expense.description,
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: isSmallScreen ? 13 : 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
+                      const SizedBox(height: 2),
+                      Text(
+                        DateFormat('dd MMM - HH:mm').format(expense.date_added),
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontSize: isSmallScreen ? 9 : 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        "Expense",
+                    ],
+                  ),
+                ),
+                
+                // Amount
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        formatRupiah(expense.amount),
                         style: TextStyle(
                           color: Colors.red,
-                          fontSize: isSmallScreen ? 8 : 9,
-                          fontWeight: FontWeight.w500,
+                          fontSize: isSmallScreen ? 13 : 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          "Expense",
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: isSmallScreen ? 8 : 9,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

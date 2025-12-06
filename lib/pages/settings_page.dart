@@ -161,30 +161,32 @@ class _SettingsPageState extends State<SettingsPage> {
                                       const SizedBox(height: 16),
                                       
                                       // Stats Cards - Responsive Grid
-                                      ValueListenableBuilder(
-                                        valueListenable: WalletService.listenToBalance(),
-                                        builder: (context, Box<Wallet> walletBox, _) {
-                                          return ValueListenableBuilder(
-                                            valueListenable: WalletService.listenToSavings(),
-                                            builder: (context, Box<Savings> savingsBox, _) {
-                                              return ValueListenableBuilder(
-                                                valueListenable: WalletService.listenToExpenses(),
-                                                builder: (context, Box<Expenses> expensesBox, _) {
+                                      StreamBuilder<double>(
+                                        stream: WalletService.watchWalletBalance(),
+                                        initialData: WalletService.getBalance(),
+                                        builder: (context, walletSnapshot) {
+                                          return StreamBuilder<int>(
+                                            stream: WalletService.watchSavingsCount(),
+                                            initialData: WalletService.getSavingsCount(),
+                                            builder: (context, savingsSnapshot) {
+                                              return StreamBuilder<int>(
+                                                stream: WalletService.watchExpenseCount(),
+                                                initialData: WalletService.getExpensesCount(),
+                                                builder: (context, expensesSnapshot) {
                                                   return LayoutBuilder(
                                                     builder: (context, statsConstraints) {
                                                       final statsWidth = statsConstraints.maxWidth;
                                                       final useCompactLayout = statsWidth < 350;
                                                       
                                                       if (useCompactLayout) {
-                                                        // Layout vertikal untuk layar sangat sempit
                                                         return Column(
                                                           children: [
                                                             _buildCompactStatCard(
                                                               "Wallet Balance",
-                                                              walletBox.get('main')?.balance ?? 0.0,
+                                                              walletSnapshot.data ?? 0.0,
                                                               Icons.account_balance_wallet,
                                                               isNarrow,
-                                                              isWallet: true, // TAMBAHKAN PARAMETER INI
+                                                              isWallet: true,
                                                             ),
                                                             const SizedBox(height: 8),
                                                             Row(
@@ -192,7 +194,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                 Expanded(
                                                                   child: _buildCompactStatCard(
                                                                     "Savings",
-                                                                    savingsBox.length.toDouble(),
+                                                                    savingsSnapshot.data?.toDouble() ?? 0.0,
                                                                     Icons.savings,
                                                                     isNarrow,
                                                                     isCount: true,
@@ -202,7 +204,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                                 Expanded(
                                                                   child: _buildCompactStatCard(
                                                                     "Expenses",
-                                                                    expensesBox.length.toDouble(),
+                                                                    expensesSnapshot.data?.toDouble() ?? 0.0,
                                                                     Icons.receipt_long,
                                                                     isNarrow,
                                                                     isCount: true,
@@ -213,24 +215,23 @@ class _SettingsPageState extends State<SettingsPage> {
                                                           ],
                                                         );
                                                       } else {
-                                                        // Layout horizontal untuk layar lebar
                                                         return Row(
                                                           children: [
                                                             Expanded(
                                                               child: _buildStatCard(
                                                                 "Wallet",
-                                                                walletBox.get('main')?.balance ?? 0.0,
+                                                                walletSnapshot.data ?? 0.0,
                                                                 Icons.account_balance_wallet,
                                                                 isNarrow,
                                                                 isLargeScreen,
-                                                                isWallet: true, // TAMBAHKAN PARAMETER INI
+                                                                isWallet: true,
                                                               ),
                                                             ),
                                                             const SizedBox(width: 12),
                                                             Expanded(
                                                               child: _buildStatCard(
                                                                 "Savings",
-                                                                savingsBox.length.toDouble(),
+                                                                savingsSnapshot.data?.toDouble() ?? 0.0,
                                                                 Icons.savings,
                                                                 isNarrow,
                                                                 isLargeScreen,
@@ -241,7 +242,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                                             Expanded(
                                                               child: _buildStatCard(
                                                                 "Expenses",
-                                                                expensesBox.length.toDouble(),
+                                                                expensesSnapshot.data?.toDouble() ?? 0.0,
                                                                 Icons.receipt_long,
                                                                 isNarrow,
                                                                 isLargeScreen,

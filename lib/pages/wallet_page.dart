@@ -322,7 +322,7 @@ class _WalletPageState extends State<WalletPage> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text("Expense",
+              const Text("Expenses",
                   style: TextStyle(
                       color: Colors.black87,
                       fontSize: 16,
@@ -361,147 +361,98 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   Widget _buildExpenseList() {
-    return ValueListenableBuilder(
-      valueListenable: WalletService.listenToExpenses(),
-      builder: (context, Box<Expenses> box, _) {
-        List<Expenses> expenses = box.values.toList().reversed.toList();
-        List<Expenses> recentExpenses = expenses.take(3).toList();
+    // Ambil data langsung tanpa ValueListenable
+    List<Expenses> recentExpenses = WalletService.getRecentExpenses(limit: 3);
+    int totalExpenses = WalletService.getExpensesCount();
 
-        if (expenses.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Center(
-              child: Text("No expense history yet.",
-                  style: TextStyle(color: Colors.black54)),
-            ),
-          );
-        }
+    if (totalExpenses == 0) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text("No expense history yet.",
+              style: TextStyle(color: Colors.black54)),
+        ),
+      );
+    }
 
-        return Column(
-          children: [
-            ...recentExpenses.map((e) => _buildTransactionItem(
-                  e.id.toString(),
-                  e.description,
-                  "Expense",
-                  formatRupiah(e.amount),
-                  isExpense: true,
-                )),
-            
-            // Tampilkan "View All" jika ada lebih dari 3 transaksi
-            if (expenses.length > 3)
-              TextButton(
-                onPressed: () {
-                  // TODO: Implement view all page/dialog
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Total expenses: ${expenses.length}'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                child: Text(
-                  "View All (${expenses.length})",
-                  style: TextStyle(
-                    color: Color(0xff6F41F2),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+    return Column(
+      children: [
+        ...recentExpenses.map((e) => _buildTransactionItem(
+              e.id.toString(),
+              e.description,
+              "Expense",
+              formatRupiah(e.amount),
+              isExpense: true,
+            )),
+      ],
     );
   }
 
   Widget _buildSavingList() {
-    return ValueListenableBuilder(
-      valueListenable: WalletService.listenToSavings(),
-      builder: (context, Box<Savings> box, _) {
-        List<Savings> list = box.values.toList().reversed.toList();
-        List<Savings> recentSavings = list.take(3).toList();
+    // Ambil data langsung tanpa ValueListenable
+    List<Savings> recentExpenses = WalletService.getRecentSavings(limit: 3);
+    int totalExpenses = WalletService.getSavingsCount();
 
-        if (list.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Center(
-              child: Text("No savings history yet.",
-                  style: TextStyle(color: Colors.black54)),
-            ),
-          );
-        }
+    if (totalExpenses == 0) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text("No savings history yet.",
+              style: TextStyle(color: Colors.black54)),
+        ),
+      );
+    }
 
-        return Column(
-          children: [
-            ...recentSavings.map((s) => _buildTransactionItem(
-                  s.id.toString(),
-                  s.description,
-                  "Saving",
-                  "${(s.percentage * 100).toStringAsFixed(0)}%",
-                  isExpense: false,
-                )),
-            
-            // Tampilkan "View All" jika ada lebih dari 3 transaksi
-            if (list.length > 3)
-              TextButton(
-                onPressed: () {
-                  // TODO: Implement view all page/dialog
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Total savings: ${list.length}'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                child: Text(
-                  "View All (${list.length})",
-                  style: TextStyle(
-                    color: Color(0xff6F41F2),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+    return Column(
+      children: [
+        ...recentExpenses.map((e) => _buildTransactionItem(
+              e.id.toString(),
+              e.description,
+              "Saving",
+              formatRupiah(e.amount),
+              isExpense: false,
+            )),
+      ],
     );
   }
 
   // ======================== SUMMARY ==========================
 
   Widget _buildSummary() {
-    return ValueListenableBuilder(
-      valueListenable: WalletService.listenToExpenses(),
-      builder: (context, Box<Expenses> _, __) {
-        double monthly =
-            WalletService.getTotalExpenseForPeriod(const Duration(days: 30));
-        double weekly =
-            WalletService.getTotalExpenseForPeriod(const Duration(days: 7));
-        double daily =
-            WalletService.getTotalExpenseForPeriod(const Duration(days: 1));
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildSummaryCard("Monthly", formatRupiah(monthly),
-                "Spent this month", Icons.calendar_month),
-            _buildSummaryCard("Weekly", formatRupiah(weekly),
-                "Spent this week", Icons.weekend,
-                isHighlighted: true),
-            _buildSummaryCard(
-                "Daily", formatRupiah(daily), "Spent today", Icons.today),
-          ],
-        );
-      },
+    // Ambil data summary sekali saja
+    final summary = WalletService.getExpenseSummary();
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _buildSummaryCard(
+          "Monthly", 
+          formatRupiah(summary['monthly'] ?? 0),
+          "Spent this month", 
+          Icons.calendar_month
+        ),
+        _buildSummaryCard(
+          "Weekly", 
+          formatRupiah(summary['weekly'] ?? 0),
+          "Spent this week", 
+          Icons.weekend,
+          isHighlighted: true,
+        ),
+        _buildSummaryCard(
+          "Daily", 
+          formatRupiah(summary['daily'] ?? 0),
+          "Spent today", 
+          Icons.today
+        ),
+      ],
     );
   }
 

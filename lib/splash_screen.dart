@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:fund_divider/bottom_bar/bottom_bar.dart';
+import 'package:fund_divider/popups/error/error.dart';
 import 'package:fund_divider/popups/username/username_popup.dart';
 import 'package:fund_divider/storage/money_storage.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  final bool showResetMessage; // Tambahkan parameter
+  
+  const SplashScreen({super.key, this.showResetMessage = false});
 
   @override
   _SplashScreenState createState() => _SplashScreenState();
@@ -16,6 +19,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _logoAnimation;
   late Animation<double> _textAnimation;
   late Animation<double> _progressAnimation;
+  bool _resetMessageShown = false; // Flag untuk mencegah tampil berulang
 
   @override
   void initState() {
@@ -61,6 +65,12 @@ class _SplashScreenState extends State<SplashScreen>
       // Tunggu animasi selesai + delay minimal
       await Future.delayed(const Duration(milliseconds: 2000));
       
+      // Tampilkan pesan reset jika diperlukan (sebelum cek username)
+      if (widget.showResetMessage && !_resetMessageShown) {
+        await _showResetMessage();
+        _resetMessageShown = true;
+      }
+      
       // Check if username exists
       final hasUsername = WalletService.hasUsername();
       
@@ -78,6 +88,22 @@ class _SplashScreenState extends State<SplashScreen>
       if (mounted) {
         _navigateToHome();
       }
+    }
+  }
+
+  Future<void> _showResetMessage() async {
+    // Tunggu animasi selesai
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    if (mounted) {
+      await showDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierColor: Colors.black.withOpacity(0.7),
+        builder: (context) => const ErrorPopup(
+          errorMessage: "Database is reaching 90 days limit. All of your expenses have been reset",
+        ),
+      );
     }
   }
 
@@ -116,7 +142,6 @@ class _SplashScreenState extends State<SplashScreen>
           _navigateToHome();
         } else {
           // Jika user membatalkan, tetap lanjut ke home
-          // (bisa juga di-loop sampai user mengisi)
           _navigateToHome();
         }
       }
@@ -131,6 +156,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Widget build tetap sama seperti sebelumnya...
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     

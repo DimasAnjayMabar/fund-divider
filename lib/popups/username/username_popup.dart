@@ -5,9 +5,9 @@ class SaveUsername extends StatefulWidget {
   final bool isEditMode;
   final Color? primaryColor;
   final Color? backgroundColor;
-  
+
   const SaveUsername({
-    super.key, 
+    super.key,
     this.isEditMode = false,
     this.primaryColor,
     this.backgroundColor,
@@ -39,22 +39,22 @@ class _SaveUsernameState extends State<SaveUsername> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isSubmitting = true);
       final username = _usernameController.text.trim();
-      
+
       try {
         await WalletService.saveUsername(username);
-        
+
         if (mounted) {
           Navigator.pop(context, username);
-          
+
           // Tampilkan snackbar sukses
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                widget.isEditMode 
-                  ? 'Username updated to "$username"!'
-                  : 'Welcome, $username!',
+                widget.isEditMode
+                    ? 'Username updated to "$username"!'
+                    : 'Welcome, $username!',
               ),
-              backgroundColor: _getPrimaryColor(),
+              backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -134,8 +134,8 @@ class _SaveUsernameState extends State<SaveUsername> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    widget.isEditMode 
-                        ? Icons.person_outline_rounded 
+                    widget.isEditMode
+                        ? Icons.person_outline_rounded
                         : Icons.person_add_alt_1_rounded,
                     color: primaryColor,
                     size: 28,
@@ -147,7 +147,9 @@ class _SaveUsernameState extends State<SaveUsername> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.isEditMode ? "Change Username" : "Create Username",
+                        widget.isEditMode
+                            ? "Change Username"
+                            : "Create Username",
                         style: TextStyle(
                           color: textColor,
                           fontSize: 20,
@@ -156,7 +158,7 @@ class _SaveUsernameState extends State<SaveUsername> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        widget.isEditMode 
+                        widget.isEditMode
                             ? "Update your display name"
                             : "Set up your profile",
                         style: TextStyle(
@@ -169,9 +171,9 @@ class _SaveUsernameState extends State<SaveUsername> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Form
             Form(
               key: _formKey,
@@ -188,7 +190,7 @@ class _SaveUsernameState extends State<SaveUsername> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   // Text Field
                   TextFormField(
                     controller: _usernameController,
@@ -198,9 +200,8 @@ class _SaveUsernameState extends State<SaveUsername> {
                     ),
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: isDarkTheme 
-                          ? Colors.grey[900] 
-                          : Colors.grey[50],
+                      fillColor:
+                          isDarkTheme ? Colors.grey[900] : Colors.grey[50],
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
@@ -275,7 +276,7 @@ class _SaveUsernameState extends State<SaveUsername> {
                     autofocus: true,
                     textCapitalization: TextCapitalization.words,
                   ),
-                  
+
                   // Character count
                   Align(
                     alignment: Alignment.centerRight,
@@ -284,8 +285,8 @@ class _SaveUsernameState extends State<SaveUsername> {
                       child: Text(
                         "${_usernameController.text.length}/20",
                         style: TextStyle(
-                          color: _usernameController.text.length > 20 
-                              ? Colors.red 
+                          color: _usernameController.text.length > 20
+                              ? Colors.red
                               : textColor.withOpacity(0.5),
                           fontSize: 12,
                         ),
@@ -295,18 +296,17 @@ class _SaveUsernameState extends State<SaveUsername> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             // Buttons
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 // Cancel Button
                 OutlinedButton(
-                  onPressed: _isSubmitting 
-                      ? null 
-                      : () => Navigator.of(context).pop(),
+                  onPressed:
+                      _isSubmitting ? null : () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -329,9 +329,9 @@ class _SaveUsernameState extends State<SaveUsername> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(width: 12),
-                
+
                 // Save Button
                 ElevatedButton(
                   onPressed: _isSubmitting ? null : _submit,

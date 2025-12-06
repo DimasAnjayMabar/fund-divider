@@ -16,8 +16,8 @@ class BottomBar extends StatefulWidget {
 
 class _BottomBarState extends State<BottomBar> {
   int _selectedIndex = 0;
-  final PageController _pageController = PageController();
-
+  
+  // Hanya menyimpan instance halaman yang pernah dibuka
   final List<Widget> _pages = [
     const WalletPage(),
     const ExpensesPage(),
@@ -25,26 +25,24 @@ class _BottomBarState extends State<BottomBar> {
     const SettingsPage(),
   ];
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
+  // Untuk melacak halaman mana yang sudah pernah di-load
+  final List<bool> _loadedPages = [true, false, false, false];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(), // Nonaktifkan swipe manual
-        onPageChanged: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          // Animasi fade (dissolve) antara halaman
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
         },
-        children: _pages,
+        child: _getPage(_selectedIndex),
       ),
-      backgroundColor: Color(0xFFD9D9D9),
+      backgroundColor: const Color(0xFFD9D9D9),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -76,12 +74,17 @@ class _BottomBarState extends State<BottomBar> {
           ),
           curve: Curves.easeInOut,
           onTap: (index) {
-            // Animasi geser ke halaman yang dituju
-            _pageController.animateToPage(
-              index,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-            );
+            // Tandai halaman sebagai loaded
+            if (!_loadedPages[index]) {
+              setState(() {
+                _loadedPages[index] = true;
+              });
+            }
+            
+            // Ganti halaman dengan animasi fade
+            setState(() {
+              _selectedIndex = index;
+            });
           },
           items: [
             SalomonBottomBarItem(
@@ -108,5 +111,22 @@ class _BottomBarState extends State<BottomBar> {
         ),
       ),
     );
+  }
+
+  // Method untuk mendapatkan halaman yang sesuai
+  Widget _getPage(int index) {
+    // Menggunakan Key yang unik untuk setiap halaman agar AnimatedSwitcher bekerja dengan benar
+    switch (index) {
+      case 0:
+        return _pages[0];
+      case 1:
+        return _loadedPages[1] ? _pages[1] : const ExpensesPage();
+      case 2:
+        return _loadedPages[2] ? _pages[2] : const SavingsPage();
+      case 3:
+        return _loadedPages[3] ? _pages[3] : const SettingsPage();
+      default:
+        return _pages[0];
+    }
   }
 }
