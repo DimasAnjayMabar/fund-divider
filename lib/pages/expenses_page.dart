@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/export_excel.dart';
 import 'package:fund_divider/model/hive.dart';
+import 'package:fund_divider/pages/receipt_scanner.dart';
 import 'package:fund_divider/popups/confirmation/confirmation_popup.dart';
 import 'package:fund_divider/popups/error/error.dart';
 import 'package:fund_divider/popups/expenses/add_expense_dialog.dart';
@@ -108,6 +111,38 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
         }
       });
   }
+
+  // @override
+  // void didChangeAppLifecycleState(AppLifecycleState state) {
+  //   super.didChangeAppLifecycleState(state);
+    
+  //   print('📱 App lifecycle state: $state');
+    
+  //   // Ketika app kembali dari background (setelah buka file eksternal)
+  //   if (state == AppLifecycleState.resumed) {
+  //     print('✅ App resumed - refreshing UI');
+      
+  //     // Force rebuild UI untuk menghindari layar hitam
+  //     if (mounted) {
+  //       setState(() {
+  //         // Refresh data jika diperlukan
+  //         _totalExpensesCount = WalletService.getExpensesCount();
+  //       });
+        
+  //       // Pastikan FAB tertutup
+  //       if (_isFabOpen) {
+  //         _toggleFab();
+  //       }
+  //     }
+  //   } else if (state == AppLifecycleState.paused) {
+  //     print('⏸️ App paused');
+      
+  //     // Optional: Tutup FAB saat app di-pause
+  //     if (_isFabOpen && mounted) {
+  //       _toggleFab();
+  //     }
+  //   }
+  // }
   
   Future<void> _loadMoreItems() async {
     if (_isLoading || !_hasMoreItems) return;
@@ -180,40 +215,20 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
         .format(value);
   }
 
-  // Function to open camera
   // Future<void> _openCamera() async {
-  //   try {
-  //     final XFile? image = await _picker.pickImage(
-  //       source: ImageSource.camera,
-  //       imageQuality: 85,
-  //       preferredCameraDevice: CameraDevice.rear,
-  //     );
-      
-  //     if (image != null) {
-  //       // TODO: Implement receipt scanning logic here
-  //       print('Image captured: ${image.path}');
-        
-  //       // For now, show a snackbar
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text('Receipt captured: ${image.path.split('/').last}'),
-  //           backgroundColor: const Color(0xff6F41F2),
-  //           duration: const Duration(seconds: 2),
-  //         ),
-  //       );
-        
-  //       // Close the expanded FAB
-  //       _toggleFab();
-  //     }
-  //   } catch (e) {
-  //     print('Error opening camera: $e');
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: const Text('Failed to open camera'),
-  //         backgroundColor: Colors.red,
-  //       ),
-  //     );
-  //   }
+  //   // Navigate ke ReceiptScanner page
+  //   await Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (context) => const ReceiptScanner(),
+  //     ),
+  //   );
+    
+  //   // Close the expanded FAB
+  //   _toggleFab();
+    
+  //   // Refresh expenses jika ada perubahan
+  //   _refreshExpenses();
   // }
 
   Future<void> _openCamera() async {
@@ -245,7 +260,73 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
     });
   }
 
+  // Di dalam fungsi _exportToExcel()
   void _exportToExcel() async {
+    // CEK JIKA DI WEB - langsung tampilkan error
+    if (kIsWeb) {
+      // Close FAB jika terbuka
+      if (_isFabOpen) {
+        _toggleFab();
+      }
+      
+      showDialog(
+        context: context,
+        builder: (BuildContext ctx) {
+          return ErrorPopup(
+            errorMessage: "Sorry, export feature is not available on web version. Please use the Android app.",
+          );
+        },
+      );
+      return;
+    }
+    
+    // CEK JIKA DI iOS ATAU WINDOWS
+    bool isNotAndroid = false;
+    String platformName = "this platform";
+    
+    try {
+      // Cek semua platform non-Android
+      if (Platform.isIOS) {
+        isNotAndroid = true;
+        platformName = "iOS";
+      } else if (Platform.isWindows) {
+        isNotAndroid = true;
+        platformName = "Windows";
+      } else if (Platform.isMacOS) {
+        isNotAndroid = true;
+        platformName = "macOS";
+      } else if (Platform.isLinux) {
+        isNotAndroid = true;
+        platformName = "Linux";
+      }
+      // Platform.isAndroid akan true jika di Android
+    } catch (e) {
+      // Jika ada error saat cek platform, anggap bukan Android
+      isNotAndroid = true;
+      print('Platform check error: $e');
+    }
+    
+    // TAMPILKAN ERROR JIKA BUKAN ANDROID
+    if (isNotAndroid) {
+      // Close FAB jika terbuka
+      if (_isFabOpen) {
+        _toggleFab();
+      }
+      
+      showDialog(
+        context: context,
+        builder: (BuildContext ctx) {
+          return ErrorPopup(
+            errorMessage: "Sorry, export feature can only be used on Android right now. "
+                        "You are currently using $platformName. "
+                        "Please use the Android app for this feature.",
+          );
+        },
+      );
+      return;
+    }
+    
+    // LANJUT KE PROSES EXPORT (HANYA UNTUK ANDROID)
     // Get ALL expenses for export (not paginated)
     final allExpenses = WalletService.getExpense();
     
@@ -260,52 +341,115 @@ class _ExpensesPageState extends State<ExpensesPage> with SingleTickerProviderSt
       return;
     }
     
-    // Show confirmation dialog
-    showDialog(
+    // SEMENTARA: Pakai AlertDialog untuk confirmation
+    // Sampai kita fix ConfirmationPopup
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return ConfirmationPopup(
-          title: 'Export Expenses',
-          errorMessage: 'Are you sure you want to export ${allExpenses.length} expense items to Excel?',
-          onConfirm: () async {
-            try {
-              final result = await ExcelExport.exportExpensesToExcel(allExpenses);
-              
-              if (result) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Expenses exported successfully'),
-                    backgroundColor: Colors.green,
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Failed to export expenses'),
-                    backgroundColor: Colors.red,
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              }
-            } catch (e) {
-              print('Error exporting to Excel: $e');
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Error: ${e.toString()}'),
-                  backgroundColor: Colors.red,
-                  duration: const Duration(seconds: 2),
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: const [
+              Icon(Icons.info_outline, color: Color(0xff6F41F2)),
+              SizedBox(width: 8),
+              Text('Export Expenses'),
+            ],
+          ),
+          content: Text(
+            'Are you sure you want to export ${allExpenses.length} expense items to CSV?',
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.black),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xff6F41F2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              );
-            }
-          },
-          primaryColor: const Color(0xff6F41F2),
+              ),
+              child: const Text('Export', style: TextStyle(color: Colors.white),),
+            ),
+          ],
         );
       },
-    ).then((_) {
-      // Close the expanded FAB after showing dialog
+    );
+    
+    // Close FAB
+    if (_isFabOpen) {
       _toggleFab();
-    });
+    }
+    
+    // Jika user tidak confirm, return
+    if (confirmed != true) {
+      print('❌ Export cancelled');
+      return;
+    }
+    
+    print('🚀 Export confirmed, starting...');
+    
+    // Jalankan export
+    try {
+      final result = await ExcelExport.exportToCSV(allExpenses);
+      
+      print('📊 Export result: $result');
+      
+      if (!mounted) return;
+      
+      if (result['success'] == true) {
+        final fileName = result['fileName'] ?? 'expenses.csv';
+        
+        print('✅ Export successful!');
+        
+        // Pakai ErrorPopup untuk success message
+        showDialog(
+          context: context,
+          builder: (BuildContext ctx) {
+            return ErrorPopup(
+              errorMessage: 
+                "✅ Export successful!\n\n"
+                "File: $fileName\n"
+                "Location: Downloads folder\n\n"
+                "You can open the file from your device's file manager.",
+            );
+          },
+        );
+        
+      } else {
+        final errorMsg = result['message'] ?? 'Failed to export';
+        
+        showDialog(
+          context: context,
+          builder: (BuildContext ctx) {
+            return ErrorPopup(
+              errorMessage: "Export failed:\n$errorMsg",
+            );
+          },
+        );
+      }
+    } catch (e) {
+      print('💥 Exception: $e');
+      
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext ctx) {
+            return ErrorPopup(
+              errorMessage: "Export error:\n${e.toString()}",
+            );
+          },
+        );
+      }
+    }
   }
 
   @override

@@ -60,12 +60,12 @@ Future<bool> _checkAndResetIfNeeded(Box<Expenses> expensesBox, Box settingsBox) 
   if (storedValue == null) {
     // Jika belum ada data reset, set ke tanggal sekarang
     lastResetDate = DateTime.now();
-    await settingsBox.put(lastResetDateKey, lastResetDate.toIso8601String());
+    await settingsBox.put(lastResetDateKey, lastResetDate.toIso8601String()); 
     return false;
   } else if (storedValue is String) {
     // Jika disimpan sebagai String (ISO format)
     lastResetDate = DateTime.parse(storedValue);
-  } else if (storedValue is DateTime) {
+  } else if (storedValue is DateTime) {   
     // Jika langsung disimpan sebagai DateTime
     lastResetDate = storedValue;
   } else {

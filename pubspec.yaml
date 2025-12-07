@@ -51,10 +51,15 @@ dependencies:
   path_provider: ^2.1.0
   open_file: ^3.3.3
   file_saver: ^0.2.1
+  camera: ^0.10.5
+  image_cropper: ^8.0.0 
+  google_mlkit_text_recognition: ^0.12.0
+  path: ^1.8.3
+  permission_handler: ^11.0.1
   
 
 dev_dependencies:
-  flutter_launcher_icons: ^0.14.3
+  flutter_launcher_icons: ^0.13.1
   flutter_test:
     sdk: flutter
 
@@ -71,7 +76,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/PIGGI.png"
+  image_path: "assets/images/icon.png"
 
 # The following section is specific to Flutter packages.
 flutter:
@@ -111,3 +116,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+

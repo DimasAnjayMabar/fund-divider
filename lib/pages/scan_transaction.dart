@@ -1,5 +1,7 @@
+// [file name]: scan_transaction.dart (UPDATE)
 import 'package:flutter/material.dart';
 import 'package:fund_divider/model/hive.dart';
+import 'package:fund_divider/pages/receipt_scanner.dart';
 import 'package:fund_divider/popups/savings/add_savings.dart';
 import 'package:fund_divider/popups/savings/deposit_saving.dart';
 import 'package:fund_divider/popups/savings/edit_savings.dart';
@@ -20,26 +22,85 @@ class _ScanTransactionState extends State<ScanTransaction> {
         .format(value);
   }
 
+  void _navigateToReceiptScanner(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ReceiptScanner(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[900],
+      appBar: AppBar(
+        title: const Text('Savings & Receipt Scanner'),
+        backgroundColor: Colors.grey[900],
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.camera_alt),
+            onPressed: () => _navigateToReceiptScanner(context),
+            tooltip: 'Scan Receipt',
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            const SizedBox(height: 40),
+            // Receipt Scanner Quick Button
+            Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              child: Card(
+                color: Colors.blue[800],
+                child: ListTile(
+                  leading: const Icon(Icons.camera_alt, color: Colors.white),
+                  title: const Text(
+                    'Scan Receipt',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Capture receipt to automatically add expense',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white),
+                  onTap: () => _navigateToReceiptScanner(context),
+                ),
+              ),
+            ),
+            
+            const Text(
+              'Your Savings',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
+            
             Expanded(
               child: ValueListenableBuilder(
                 valueListenable: Hive.box<Savings>('savingsBox').listenable(),
                 builder: (context, Box<Savings> box, _) {
                   if (box.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        "No savings available",
-                        style: TextStyle(color: Colors.white, fontSize: 16),
-                      ),
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.account_balance_wallet, color: Colors.grey, size: 64),
+                        const SizedBox(height: 16),
+                        const Text(
+                          "No savings available",
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => _navigateToReceiptScanner(context),
+                          child: const Text(
+                            'Try scanning a receipt instead',
+                            style: TextStyle(color: Colors.blue),
+                          ),
+                        ),
+                      ],
                     );
                   }
 
@@ -86,7 +147,9 @@ class _ScanTransactionState extends State<ScanTransaction> {
                             title: saving.description,
                             amount: formatRupiah(saving.amount),
                             color: Colors.red,
-                            remainingTarget: saving.target == 0 ? "This is the main saving" : "${formatRupiah(remainingTarget)} left to reach target",
+                            remainingTarget: saving.target == 0 
+                                ? "This is the main saving" 
+                                : "${formatRupiah(remainingTarget)} left to reach target",
                           ),
                         ),
                       );
@@ -98,17 +161,31 @@ class _ScanTransactionState extends State<ScanTransaction> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return AddSavings();
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'scan_receipt',
+            onPressed: () => _navigateToReceiptScanner(context),
+            backgroundColor: Colors.blue,
+            mini: true,
+            child: const Icon(Icons.camera_alt, color: Colors.white),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton(
+            heroTag: 'add_saving',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AddSavings();
+                },
+              );
             },
-          );
-        },
-        backgroundColor: Colors.grey[800],
-        child: const Icon(Icons.add, color: Colors.white),
+            backgroundColor: Colors.grey[800],
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+        ],
       ),
     );
   }

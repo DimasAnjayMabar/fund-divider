@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:fund_divider/model/error_handler.dart';
 import 'package:fund_divider/model/hive.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -502,5 +504,218 @@ class WalletService {
   static Future<void> resetExpenses() async {
     await _expensesBox.clear();
     _invalidateCache();
+  }
+
+  /// ====================== OCR MODEL ======================
+  static final TextRecognizer _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+
+  /// ====================== OCR RECEIPT PROCESSING ======================
+  /// Process image file from camera/gallery and create expense automatically
+  static Future<Map<String, dynamic>> processReceiptImage(File imageFile) async {
+    try {
+      // Step 1: OCR Text Recognition
+      final inputImage = InputImage.fromFile(imageFile);
+      final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
+      
+      // Step 2: Extract text from OCR result
+      String fullText = recognizedText.text;
+      
+      // Step 3: Parse receipt data
+      final parsedData = _parseReceiptText(fullText);
+      
+      // Step 4: Create expense from parsed data
+      if (parsedData['amount'] > 0) {
+        await addExpenseFromReceipt(
+          description: parsedData['description'],
+          amount: parsedData['amount'],
+          storeName: parsedData['store_name'],
+          items: parsedData['items'],
+        );
+      }
+      
+      return {
+        'success': true,
+        'amount': parsedData['amount'],
+        'description': parsedData['description'],
+        'store_name': parsedData['store_name'],
+        'items_count': parsedData['items'].length,
+        'raw_text': fullText,
+      };
+      
+    } catch (e) {
+      if (kDebugMode) {
+        print('OCR Error: $e');
+      }
+      return {
+        'success': false,
+        'error': 'Failed to process receipt: ${e.toString()}',
+      };
+    }
+  }
+
+  /// Parse receipt text to extract relevant information
+  static Map<String, dynamic> _parseReceiptText(String text) {
+    final lines = text.split('\n');
+    double totalAmount = 0.0;
+    String storeName = 'Unknown Store';
+    List<String> items = [];
+    List<String> allLines = [];
+    
+    // Pattern untuk mendeteksi total/total amount
+    final totalPatterns = [
+      RegExp(r'total\s*[:]?\s*Rp?\s*(\d+[.,]?\d*)', caseSensitive: false),
+      RegExp(r'jumlah\s*[:]?\s*Rp?\s*(\d+[.,]?\d*)', caseSensitive: false),
+      RegExp(r'grand\s*total\s*[:]?\s*Rp?\s*(\d+[.,]?\d*)', caseSensitive: false),
+      RegExp(r'Rp?\s*(\d+[.,]?\d*)\s*$'),
+      RegExp(r'(\d+[.,]\d{3})\s*$'),
+    ];
+    
+    // Pattern untuk mendeteksi nama toko
+    final storePatterns = [
+      RegExp(r'^(?!(total|jumlah|item|harga|qty)).{3,}$', caseSensitive: false),
+    ];
+    
+    // Pattern untuk mendeteksi item dan harga
+    final itemPattern = RegExp(r'(.+?)\s+(\d+[.,]\d{3}|\d+)\s*$');
+    final pricePattern = RegExp(r'(\d+[.,]\d{3}|\d+)');
+    
+    // Analisis setiap baris
+    for (var line in lines) {
+      line = line.trim();
+      if (line.isEmpty) continue;
+      
+      allLines.add(line);
+      
+      // Cek apakah ini baris total
+      bool isTotalLine = false;
+      for (var pattern in totalPatterns) {
+        final match = pattern.firstMatch(line);
+        if (match != null && match.group(1) != null) {
+          String amountStr = match.group(1)!.replaceAll('.', '').replaceAll(',', '.');
+          totalAmount = double.tryParse(amountStr) ?? 0.0;
+          isTotalLine = true;
+          break;
+        }
+      }
+      
+      // Jika bukan total line, cek apakah ini item
+      if (!isTotalLine) {
+        // Cek apakah line berisi harga
+        final priceMatches = pricePattern.allMatches(line);
+        if (priceMatches.length == 1) {
+          // Kemungkinan ini item dengan harga
+          final itemMatch = itemPattern.firstMatch(line);
+          if (itemMatch != null) {
+            items.add(line);
+          }
+        }
+        
+        // Cek apakah ini nama toko (biasanya di awal atau memiliki karakter khusus)
+        if (storeName == 'Unknown Store' && 
+            line.length > 3 && 
+            line.length < 50 &&
+            !line.toLowerCase().contains('total') &&
+            !line.toLowerCase().contains('jumlah') &&
+            !line.contains(RegExp(r'\d'))) {
+          storeName = line;
+        }
+      }
+    }
+    
+    // Jika total tidak ditemukan, coba cari angka terbesar di teks
+    if (totalAmount == 0.0) {
+      final allNumbers = pricePattern.allMatches(text);
+      double maxNumber = 0.0;
+      for (var match in allNumbers) {
+        String numStr = match.group(0)!.replaceAll('.', '').replaceAll(',', '.');
+        double? num = double.tryParse(numStr);
+        if (num != null && num > maxNumber && num < 10000000) { // Batasi untuk mencegah kesalahan
+          maxNumber = num;
+        }
+      }
+      totalAmount = maxNumber;
+    }
+    
+    // Buat deskripsi dari data yang ditemukan
+    String description = _generateDescription(storeName, items, totalAmount);
+    
+    return {
+      'amount': totalAmount,
+      'description': description,
+      'store_name': storeName,
+      'items': items,
+      'all_lines': allLines,
+    };
+  }
+
+  /// Generate description from parsed receipt data
+  static String _generateDescription(String storeName, List<String> items, double amount) {
+    if (items.isNotEmpty) {
+      if (items.length == 1) {
+        return '$storeName - ${items.first}';
+      } else {
+        return '$storeName - ${items.length} items';
+      }
+    }
+    
+    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0);
+    return '$storeName - ${formatter.format(amount)}';
+  }
+
+  /// Add expense from receipt processing
+  static Future<void> addExpenseFromReceipt({
+    required String description,
+    required double amount,
+    required String storeName,
+    required List<String> items,
+  }) async {
+    // Validasi balance
+    double currentBalance = getBalance();
+    final NumberFormat currencyFormatter = NumberFormat.decimalPattern("id_ID");
+
+    if (amount > currentBalance) {
+      ErrorHandler.showError(
+          "Insufficient balance. Your current balance is ${currencyFormatter.format(currentBalance)}.");
+      return;
+    }
+
+    int id = _expensesBox.length + 1;
+
+    // Kurangi dari balance
+    _walletBox.put('main', Wallet(id: 1, balance: currentBalance - amount));
+
+    Expenses newExpense = Expenses(
+        id: id,
+        description: description,
+        amount: amount,
+        date_added: DateTime.now());
+
+    await _expensesBox.put(id, newExpense);
+    _invalidateCache();
+    
+    // Log history
+    await _logReceiptHistory(newExpense, storeName, items);
+  }
+
+  /// Log receipt processing to history
+  static Future<void> _logReceiptHistory(Expenses expense, String storeName, List<String> items) async {
+    try {
+      int id = _historyBox.length + 1;
+      History history = History(
+        id: id,
+        expense: expense,
+        dateAdded: DateTime.now(),
+      );
+      await _historyBox.put(id, history);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to log receipt history: $e');
+      }
+    }
+  }
+
+  /// Cleanup OCR resources
+  static void disposeOCR() {
+    _textRecognizer.close();
   }
 }
