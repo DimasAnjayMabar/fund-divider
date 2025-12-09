@@ -42,6 +42,13 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.debug
+
+            // Enable R8 / code shrinking
+            minifyEnabled true
+            shrinkResources true
+
+            // Use your custom ProGuard rules
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -52,4 +59,8 @@ flutter {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.1.0"
+    implementation 'com.google.mlkit:text-recognition-chinese:16.0.0'
+    implementation 'com.google.mlkit:text-recognition-japanese:16.0.0'
+    implementation 'com.google.mlkit:text-recognition-korean:16.0.0'
+    implementation 'com.google.mlkit:text-recognition-devanagari:16.0.0'
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fund_divider/model/hive.dart';
 import 'package:fund_divider/popups/confirmation/confirmation_popup.dart';
 import 'package:fund_divider/popups/username/username_popup.dart';
 import 'package:fund_divider/storage/money_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -35,6 +37,118 @@ class _SettingsPageState extends State<SettingsPage> {
     return value.toStringAsFixed(0);
   }
 
+  // Fungsi untuk membuka URL GitHub Releases di browser device
+  Future<void> _launchGitHubReleases() async {
+    const url = 'https://github.com/DimasAnjayMabar/fund-divider/releases';
+    final uri = Uri.parse(url);
+    
+    try {
+      // Gunakan launchUrl langsung tanpa canLaunchUrl
+      final result = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication, // Ini akan membuka di browser eksternal
+        webViewConfiguration: const WebViewConfiguration(
+          enableJavaScript: true,
+          enableDomStorage: true,
+        ),
+      );
+      
+      if (!result && mounted) {
+        // Jika launchUrl mengembalikan false, tampilkan dialog error
+        _showLaunchErrorDialog(url);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
+      _showLaunchErrorDialog(url);
+    }
+  }
+
+  void _showLaunchErrorDialog(String url) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Cannot Open Link"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Unable to open GitHub releases."),
+            const SizedBox(height: 8),
+            const Text("You can manually visit:"),
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: url));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("URL copied to clipboard")),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  url,
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Or try to open in:",
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await launchUrl(
+                        Uri.parse(url),
+                        mode: LaunchMode.inAppWebView, // Coba dengan webview internal
+                      );
+                    },
+                    icon: const Icon(Icons.web, size: 16),
+                    label: const Text("In-app Browser"),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await launchUrl(
+                        Uri.parse(url),
+                        mode: LaunchMode.externalNonBrowserApplication, // Coba dengan aplikasi lain
+                      );
+                    },
+                    icon: const Icon(Icons.open_in_new, size: 16),
+                    label: const Text("External App"),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,11 +165,11 @@ class _SettingsPageState extends State<SettingsPage> {
           
           // Hitung tinggi AppBar secara dinamis
           final appBarHeight = () {
-            if (isDesktop) return 230.0;
-            if (isLargeScreen) return 220.0;
-            if (isLandscape) return 200.0;
-            if (isSmallScreen) return 210.0;
-            return 220.0;
+            if (isDesktop) return 280.0;
+            if (isLargeScreen) return 280.0;
+            if (isLandscape) return 280.0;
+            if (isSmallScreen) return 280.0;
+            return 280.0;
           }();
           
           return Stack(
@@ -160,7 +274,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       
                                       const SizedBox(height: 16),
                                       
-                                      // Stats Cards - Responsive Grid
+                                      // Stats Cards - Wallet full width, Savings/Expenses below
                                       StreamBuilder<double>(
                                         stream: WalletService.watchWalletBalance(),
                                         initialData: WalletService.getBalance(),
@@ -173,86 +287,46 @@ class _SettingsPageState extends State<SettingsPage> {
                                                 stream: WalletService.watchExpenseCount(),
                                                 initialData: WalletService.getExpensesCount(),
                                                 builder: (context, expensesSnapshot) {
-                                                  return LayoutBuilder(
-                                                    builder: (context, statsConstraints) {
-                                                      final statsWidth = statsConstraints.maxWidth;
-                                                      final useCompactLayout = statsWidth < 350;
+                                                  return Column(
+                                                    children: [
+                                                      // Wallet Balance - Full width row
+                                                      _buildFullWidthWalletCard(
+                                                        walletSnapshot.data ?? 0.0,
+                                                        isNarrow,
+                                                        isLargeScreen,
+                                                      ),
                                                       
-                                                      if (useCompactLayout) {
-                                                        return Column(
-                                                          children: [
-                                                            _buildCompactStatCard(
-                                                              "Wallet Balance",
-                                                              walletSnapshot.data ?? 0.0,
-                                                              Icons.account_balance_wallet,
+                                                      const SizedBox(height: 12),
+                                                      
+                                                      // Savings & Expenses - Row below
+                                                      Row(
+                                                        children: [
+                                                          // Savings Card - Half width
+                                                          Expanded(
+                                                            child: _buildHalfWidthCountCard(
+                                                              "Savings",
+                                                              savingsSnapshot.data?.toDouble() ?? 0.0,
+                                                              Icons.savings,
                                                               isNarrow,
-                                                              isWallet: true,
+                                                              isLargeScreen,
                                                             ),
-                                                            const SizedBox(height: 8),
-                                                            Row(
-                                                              children: [
-                                                                Expanded(
-                                                                  child: _buildCompactStatCard(
-                                                                    "Savings",
-                                                                    savingsSnapshot.data?.toDouble() ?? 0.0,
-                                                                    Icons.savings,
-                                                                    isNarrow,
-                                                                    isCount: true,
-                                                                  ),
-                                                                ),
-                                                                const SizedBox(width: 8),
-                                                                Expanded(
-                                                                  child: _buildCompactStatCard(
-                                                                    "Expenses",
-                                                                    expensesSnapshot.data?.toDouble() ?? 0.0,
-                                                                    Icons.receipt_long,
-                                                                    isNarrow,
-                                                                    isCount: true,
-                                                                  ),
-                                                                ),
-                                                              ],
+                                                          ),
+                                                          
+                                                          SizedBox(width: isNarrow ? 8 : 12),
+                                                          
+                                                          // Expenses Card - Half width
+                                                          Expanded(
+                                                            child: _buildHalfWidthCountCard(
+                                                              "Expenses",
+                                                              expensesSnapshot.data?.toDouble() ?? 0.0,
+                                                              Icons.receipt_long,
+                                                              isNarrow,
+                                                              isLargeScreen,
                                                             ),
-                                                          ],
-                                                        );
-                                                      } else {
-                                                        return Row(
-                                                          children: [
-                                                            Expanded(
-                                                              child: _buildStatCard(
-                                                                "Wallet",
-                                                                walletSnapshot.data ?? 0.0,
-                                                                Icons.account_balance_wallet,
-                                                                isNarrow,
-                                                                isLargeScreen,
-                                                                isWallet: true,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(width: 12),
-                                                            Expanded(
-                                                              child: _buildStatCard(
-                                                                "Savings",
-                                                                savingsSnapshot.data?.toDouble() ?? 0.0,
-                                                                Icons.savings,
-                                                                isNarrow,
-                                                                isLargeScreen,
-                                                                isCount: true,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(width: 12),
-                                                            Expanded(
-                                                              child: _buildStatCard(
-                                                                "Expenses",
-                                                                expensesSnapshot.data?.toDouble() ?? 0.0,
-                                                                Icons.receipt_long,
-                                                                isNarrow,
-                                                                isLargeScreen,
-                                                                isCount: true,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        );
-                                                      }
-                                                    },
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
                                                   );
                                                 },
                                               );
@@ -496,31 +570,117 @@ class _SettingsPageState extends State<SettingsPage> {
                                       final useGridLayout = detailsWidth > 300;
                                       
                                       if (useGridLayout) {
-                                        return Row(
+                                        return Column(
                                           children: [
-                                            Expanded(
-                                              child: _buildAppDetailItem(
-                                                "Version",
-                                                "1.0.0",
-                                                isSmallScreen,
-                                                isLargeScreen,
-                                              ),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: _buildAppDetailItem(
+                                                    "Version",
+                                                    "1.0.0",
+                                                    isSmallScreen,
+                                                    isLargeScreen,
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  child: _buildAppDetailItem(
+                                                    "Build Date",
+                                                    "Dec 2024",
+                                                    isSmallScreen,
+                                                    isLargeScreen,
+                                                  ),
+                                                ),
+                                                if (detailsWidth > 400)
+                                                Expanded(
+                                                  child: _buildAppDetailItem(
+                                                    "Platform",
+                                                    "Flutter",
+                                                    isSmallScreen,
+                                                    isLargeScreen,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            Expanded(
-                                              child: _buildAppDetailItem(
-                                                "Build Date",
-                                                "Dec 2024",
-                                                isSmallScreen,
-                                                isLargeScreen,
-                                              ),
-                                            ),
-                                            if (detailsWidth > 400)
-                                            Expanded(
-                                              child: _buildAppDetailItem(
-                                                "Platform",
-                                                "Flutter",
-                                                isSmallScreen,
-                                                isLargeScreen,
+                                            const SizedBox(height: 16),
+                                            // UPDATE APP CARD
+                                            Material(
+                                              borderRadius: BorderRadius.circular(16),
+                                              child: InkWell(
+                                                onTap: _launchGitHubReleases,
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(16),
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topLeft,
+                                                      end: Alignment.bottomRight,
+                                                      colors: [
+                                                      Color(0xFF4CAF50).withOpacity(0.9),
+                                                      Color(0xFF2E7D32).withOpacity(0.9),
+                                                    ],
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.green.withOpacity(0.3),
+                                                        blurRadius: 8,
+                                                        spreadRadius: 2,
+                                                        offset: const Offset(0, 4),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        padding: const EdgeInsets.all(12),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.white.withOpacity(0.2),
+                                                          shape: BoxShape.circle,
+                                                        ),
+                                                        child: Icon(
+                                                          Icons.system_update_alt_rounded,
+                                                          color: Colors.white,
+                                                          size: isSmallScreen ? 22 : 26,
+                                                        ),
+                                                      ),
+                                                      SizedBox(width: isSmallScreen ? 14 : 18),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          children: [
+                                                            Text(
+                                                              "Update the App Here",
+                                                              style: TextStyle(
+                                                                color: Colors.white,
+                                                                fontSize: isLargeScreen ? 18 : 
+                                                                         isSmallScreen ? 16 : 17,
+                                                                fontWeight: FontWeight.bold,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                            const SizedBox(height: 4),
+                                                            Text(
+                                                              "Find our releases to download the latest version",
+                                                              style: TextStyle(
+                                                                color: Colors.white.withOpacity(0.9),
+                                                                fontSize: isLargeScreen ? 14 : 
+                                                                         isSmallScreen ? 12 : 13,
+                                                              ),
+                                                              maxLines: 2,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      Icon(
+                                                        Icons.arrow_forward_ios_rounded,
+                                                        color: Colors.white.withOpacity(0.8),
+                                                        size: isSmallScreen ? 18 : 20,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -542,6 +702,86 @@ class _SettingsPageState extends State<SettingsPage> {
                                               isSmallScreen,
                                               isLargeScreen,
                                               fullWidth: true,
+                                            ),
+                                            const SizedBox(height: 12),
+                                            // UPDATE APP CARD untuk layout sempit
+                                            Material(
+                                              borderRadius: BorderRadius.circular(16),
+                                              child: InkWell(
+                                                onTap: _launchGitHubReleases,
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(14),
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topLeft,
+                                                      end: Alignment.bottomRight,
+                                                      colors: [
+                                                        Color(0xFF4CAF50).withOpacity(0.9),
+                                                        Color(0xFF2E7D32).withOpacity(0.9),
+                                                      ],
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.green.withOpacity(0.3),
+                                                        blurRadius: 8,
+                                                        spreadRadius: 2,
+                                                        offset: const Offset(0, 4),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        padding: const EdgeInsets.all(10),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.white.withOpacity(0.2),
+                                                          shape: BoxShape.circle,
+                                                        ),
+                                                        child: Icon(
+                                                          Icons.system_update_alt_rounded,
+                                                          color: Colors.white,
+                                                          size: 20,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          children: [
+                                                            Text(
+                                                              "Update the App Here",
+                                                              style: TextStyle(
+                                                                color: Colors.white,
+                                                                fontSize: isSmallScreen ? 15 : 16,
+                                                                fontWeight: FontWeight.bold,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                            const SizedBox(height: 2),
+                                                            Text(
+                                                              "Find our releases to download the latest version",
+                                                              style: TextStyle(
+                                                                color: Colors.white.withOpacity(0.9),
+                                                                fontSize: isSmallScreen ? 11 : 12,
+                                                              ),
+                                                              maxLines: 2,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      Icon(
+                                                        Icons.arrow_forward_ios_rounded,
+                                                        color: Colors.white.withOpacity(0.8),
+                                                        size: 16,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
                                             ),
                                           ],
                                         );
@@ -570,37 +810,97 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildSectionTitle(String title, bool isSmallScreen, bool isLargeScreen) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: isLargeScreen ? 8 : 4,
-        bottom: isSmallScreen ? 8 : 12,
+  // Widget untuk Wallet Balance card (full width)
+  Widget _buildFullWidthWalletCard(
+    double value,
+    bool isNarrow,
+    bool isLargeScreen,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 16 : 20,
+        vertical: isNarrow ? 14 : 16,
       ),
-      child: Text(
-        title,
-        style: TextStyle(
-          color: Colors.black,
-          fontSize: isLargeScreen ? 20 : 
-                   isSmallScreen ? 17 : 18,
-          fontWeight: FontWeight.w600,
+      decoration: BoxDecoration(
+        color: const Color(0xff6F41F2).withOpacity(0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xff6F41F2).withOpacity(0.1),
+          width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.05),
+            blurRadius: 8,
+            spreadRadius: 1,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(isNarrow ? 10 : 12),
+            decoration: BoxDecoration(
+              color: const Color(0xff6F41F2).withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.account_balance_wallet,
+              color: const Color(0xff6F41F2),
+              size: isNarrow ? 20 : 24,
+            ),
+          ),
+          SizedBox(width: isNarrow ? 12 : 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Wallet Balance",
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontSize: isLargeScreen ? 16 : 
+                             isNarrow ? 12 : 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  formatRupiah(value),
+                  style: TextStyle(
+                    color: const Color(0xff6F41F2),
+                    fontSize: isLargeScreen ? 24 : 
+                             isNarrow ? 18 : 22,
+                    fontWeight: FontWeight.bold,
+                    height: 1.1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildStatCard(
+  // Widget untuk Savings/Expenses card (half width)
+  Widget _buildHalfWidthCountCard(
     String label,
     double value,
     IconData icon,
     bool isNarrow,
-    bool isLargeScreen, {
-    bool isCount = false,
-    bool isWallet = false, // TAMBAHKAN PARAMETER INI
-  }) {
+    bool isLargeScreen,
+  ) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: isNarrow ? 10 : 14,
-        vertical: isNarrow ? 10 : 12,
+        horizontal: isNarrow ? 12 : 16,
+        vertical: isNarrow ? 12 : 14,
       ),
       decoration: BoxDecoration(
         color: const Color(0xff6F41F2).withOpacity(0.05),
@@ -621,7 +921,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(isNarrow ? 6 : 8),
+            padding: EdgeInsets.all(isNarrow ? 8 : 10),
             decoration: BoxDecoration(
               color: const Color(0xff6F41F2).withOpacity(0.1),
               shape: BoxShape.circle,
@@ -629,37 +929,34 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Icon(
               icon,
               color: const Color(0xff6F41F2),
-              size: isNarrow ? 16 : 18,
+              size: isNarrow ? 16 : 20,
             ),
           ),
-          SizedBox(width: isNarrow ? 8 : 10),
+          SizedBox(width: isNarrow ? 8 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  // PERUBAHAN DI SINI
-                  isWallet ? 
-                    formatRupiah(value) : 
-                    (isCount ? value.toInt().toString() : _formatCompactCurrency(value)),
+                  label,
                   style: TextStyle(
-                    color: const Color(0xff6F41F2),
-                    fontSize: isLargeScreen ? 18 : 
-                            isNarrow ? 14 : 16,
-                    fontWeight: FontWeight.bold,
-                    height: 1.1,
+                    color: Colors.black54,
+                    fontSize: isLargeScreen ? 14 : 
+                             isNarrow ? 11 : 13,
+                    fontWeight: FontWeight.w500,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  label,
+                  value.toInt().toString(),
                   style: TextStyle(
-                    color: Colors.black54,
-                    fontSize: isLargeScreen ? 13 : 
-                            isNarrow ? 10 : 11,
-                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff6F41F2),
+                    fontSize: isLargeScreen ? 20 : 
+                             isNarrow ? 16 : 18,
+                    fontWeight: FontWeight.bold,
+                    height: 1.1,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -672,66 +969,21 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildCompactStatCard(
-    String label,
-    double value,
-    IconData icon,
-    bool isNarrow, {
-    bool isCount = false,
-    bool isWallet = false, // TAMBAHKAN PARAMETER INI
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xff6F41F2).withOpacity(0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xff6F41F2).withOpacity(0.1),
-          width: 1,
+  Widget _buildSectionTitle(String title, bool isSmallScreen, bool isLargeScreen) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: isLargeScreen ? 8 : 4,
+        bottom: isSmallScreen ? 8 : 12,
+      ),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: isLargeScreen ? 20 : 
+                   isSmallScreen ? 17 : 18,
+          fontWeight: FontWeight.w600,
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: const Color(0xff6F41F2),
-            size: 14,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.black54,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  // PERUBAHAN DI SINI
-                  isWallet ? 
-                    formatRupiah(value) : 
-                    (isCount ? value.toInt().toString() : _formatCompactCurrency(value)),
-                  style: const TextStyle(
-                    color: Color(0xff6F41F2),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      )
     );
   }
 
